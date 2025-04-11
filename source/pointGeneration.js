@@ -34,7 +34,7 @@ export function addSFPoints() {
     const texture = new THREE.TextureLoader().load("./assets/snowflake2.png");
     //Create points material
     const pointMaterial = new THREE.PointsMaterial({
-        size: randomSize(0.8, 2),
+        size: randomSize(1.5, 2),
         vertexColors: false,
         color: 0xffffff,
         map: texture,

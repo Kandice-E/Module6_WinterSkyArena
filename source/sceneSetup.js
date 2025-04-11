@@ -7,7 +7,8 @@ export function createScene() {
 };
 export function createCamera() {
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.5, 6000);
-    camera.position.z = 1200;
+    camera.position.z = 250;
+    camera.position.y = 10;
     camera.rotateY(Math.PI / 2);
     return camera;
 };
