@@ -3,7 +3,7 @@ import { addControls } from './orbitControls.js';
 import { createScene, createCamera, createRenderer } from './sceneSetup.js';
 import { addLights } from './lights.js';
 import Stats from 'three/examples/jsm/libs/stats.module.js';
-import { addStaircase, addPlatform, addPillar } from './geometries.js';
+//import { addStaircase, addPlatform, addPillar } from './geometries.js';
 import { addSFPoints } from './pointGeneration.js';
 import { animatePoints } from './spriteAnimation.js';
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
@@ -24,7 +24,7 @@ function onWindowResize() {
 };
 window.addEventListener('resize', onWindowResize, false);
 //-----FOG-----//
-scene.fog = new THREE.FogExp2(0x000000, 0.002);
+scene.fog = new THREE.FogExp2(0x100000, 0.001);
 //-----LIGHTS-----//
 //addLights(scene);
 //-----CONTROLS-----//
@@ -52,6 +52,12 @@ loader.load('./assets/collision-world.glb', ( gltf ) => {
             if ( child.isMesh ) {
                 child.castShadow = true;
                 child.receiveShadow = true;
+                child.material.color.set(0xFC98A8);
+            }
+        });
+        gltf.scene.traverse((child) => {
+            if (child.isMesh) {
+                console.log('Mesh name:', child.name);
             }
         });
     });
