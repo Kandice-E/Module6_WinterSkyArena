@@ -10,7 +10,7 @@ export function createCamera() {
     camera.position.z = 600;
     camera.position.y = 100;
     camera.position.x = -115;
-    camera.rotateY(Math.PI / 2);
+    camera.rotation.order = 'YXZ';
     return camera;
 };
 export function createRenderer() {
