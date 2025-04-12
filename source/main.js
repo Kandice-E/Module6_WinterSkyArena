@@ -1,9 +1,9 @@
 import * as THREE from 'three';
-import { addControls } from './orbitControls.js'; 
+import { addControls, addFirstPersonControls } from './orbitControls.js'; 
 import { createScene, createCamera, createRenderer } from './sceneSetup.js';
 import { addLights } from './lights.js';
 import Stats from 'three/examples/jsm/libs/stats.module.js';
-//import { addStaircase, addPlatform, addPillar } from './geometries.js';
+import { addTarget } from './geometries.js';
 import { addSFPoints } from './pointGeneration.js';
 import { animatePoints } from './spriteAnimation.js';
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
@@ -29,7 +29,7 @@ scene.fog = new THREE.FogExp2(0x100000, 0.001);
 //addLights(scene);
 //-----CONTROLS-----//
 const orbitControls = addControls(camera, renderer.domElement);
-scene.add(orbitControls);
+//const firstPersonControls = addFirstPersonControls(camera, renderer.domElement);
 //-----AXIS HELPER-----//
 const axesHelper = new THREE.AxesHelper(100);
 scene.add(axesHelper);
@@ -43,6 +43,9 @@ new RGBELoader().load('./assets/belfast_sunset_puresky_2k.hdr', function(skyText
     scene.environment = skyTexture;
     scene.environmentIntensity = 0.5;
 })
+//-----TARGET-----//
+const target1 = addTarget();
+scene.add(target1);
 //-----LOAD MODEL-----//
 const loader = new GLTFLoader();
 loader.load('./assets/collision-world.glb', ( gltf ) => {
@@ -71,6 +74,7 @@ function animate() {
     animatePoints(points);
     stats.update();
     orbitControls.update();
+    //firstPersonControls.update(0.1);
     renderer.render(scene, camera);
 };
 animate();
