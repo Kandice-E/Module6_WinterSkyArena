@@ -8,10 +8,12 @@ function addControls(camera, domElement) {
 }
 function eventListeners(mouseTime, keyStates, camera, spheres, sphereIdx, playerCollider, playerVelocity, playerDirection) {
     document.addEventListener( 'keydown', ( event ) => {
-        keyStates[ event.code ] = true;
+        console.log("Key down: ", event.key);
+        console.log("Velocity:", playerVelocity);
+        keyStates[ event.key ] = true;
     } );
     document.addEventListener( 'keyup', ( event ) => {
-        keyStates[ event.code ] = false;
+        keyStates[ event.key ] = false;
     } );
     document.addEventListener( 'mousedown', () => {
         document.body.requestPointerLock();
@@ -43,18 +45,27 @@ function getSideVector(camera, playerDirection) {
 function controls(keyStates, playerVelocity, camera, playerDirection, deltaTime, playerOnFloor) {
     // gives a bit of air control
     const speedDelta = deltaTime * ( playerOnFloor ? 25 : 8 );
-
+    camera.updateMatrixWorld();
+    //console.log(camera.position);
+    const forward = new THREE.Vector3();
+    const side = new THREE.Vector3();
+    if (camera.matrixWorld) {
+        forward.setFromMatrixColumn(camera.matrixWorld, 0);
+        forward.crossVectors(camera.up, forward).normalize();
+  
+        side.setFromMatrixColumn(camera.matrixWorld, 0).normalize();
+      }
     if ( keyStates[ 'KeyW' ] ) {
-        playerVelocity.add( getForwardVector(camera, playerDirection).multiplyScalar( speedDelta ) );
+        playerVelocity.add( forward.clone().multiplyScalar( speedDelta ) );
     }
     if ( keyStates[ 'KeyS' ] ) {
-        playerVelocity.add( getForwardVector(camera, playerDirection).multiplyScalar( - speedDelta ) );
+        playerVelocity.add( forward.clone().multiplyScalar( - speedDelta ) );
     }
     if ( keyStates[ 'KeyA' ] ) {
-        playerVelocity.add( getSideVector(camera, playerDirection).multiplyScalar( - speedDelta ) );
+        playerVelocity.add( side.clone().multiplyScalar( - speedDelta ) );
     }
     if ( keyStates[ 'KeyD' ] ) {
-        playerVelocity.add( getSideVector(camera, playerDirection).multiplyScalar( speedDelta ) );
+        playerVelocity.add( side.clone().multiplyScalar( speedDelta ) );
     }
     if ( playerOnFloor ) {
         if ( keyStates[ 'Space' ] ) {

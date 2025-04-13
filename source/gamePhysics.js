@@ -15,7 +15,7 @@ function updatePlayer(deltaTime, playerOnFloor, playerVelocity, playerCollider, 
     const deltaPosition = playerVelocity.clone().multiplyScalar( deltaTime );
     playerCollider.translate( deltaPosition );
     playerCollisions(worldOctree, playerCollider, playerOnFloor, playerVelocity);
-    console.log(camera.position);
+    //console.log(camera.position);
     camera.position.copy( playerCollider.end );
 }
 function playerCollisions(worldOctree, playerCollider, playerOnFloor, playerVelocity) {

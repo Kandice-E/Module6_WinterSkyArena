@@ -116,9 +116,12 @@ function animate() {
     // an object traversing another too quickly for detection.
     for ( let i = 0; i < STEPS_PER_FRAME; i ++ ) {
         controls(keyStates, playerVelocity, camera, playerDirection);
-        updatePlayer(deltaTime, playerOnFloor, playerVelocity, playerCollider, worldOctree, camera);
-        updateSpheres(deltaTime, spheres, worldOctree, GRAVITY, playerCollider, playerVelocity, vector1, vector2, vector3);
+        //camera.updateProjectionMatrix();
+        //console.log(camera.position);
+        //updatePlayer(deltaTime, playerOnFloor, playerVelocity, playerCollider, worldOctree, camera);
+        //updateSpheres(deltaTime, spheres, worldOctree, GRAVITY, playerCollider, playerVelocity, vector1, vector2, vector3);
         teleportPlayerIfOob(camera, playerCollider);
+        
     }
     stats.update();
     //orbitControls.update();
