@@ -11,6 +11,7 @@ import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { Capsule } from 'three/examples/jsm/math/Capsule.js';
 import { Octree } from 'three/examples/jsm/math/Octree.js';
+import { OctreeHelper } from 'three/examples/jsm/helpers/OctreeHelper.js';
 
 //-----VARIABLES FOR IMPORT FUNCTIONS-----//
 const keyStates = {};
@@ -19,12 +20,12 @@ const STEPS_PER_FRAME = 5;
 const playerVelocity = new THREE.Vector3();
 const playerDirection = new THREE.Vector3();
 let playerOnFloor = false;
-const GRAVITY = 30;
+const GRAVITY = 215;
 const NUM_SPHERES = 100;
 const SPHERE_RADIUS = 0.2;
 const spheres = [];
 let sphereIdx = 0;
-const playerCollider = new Capsule( new THREE.Vector3( 0, 0.35, 0 ), new THREE.Vector3( 0, 1, 0 ), 0.35 );
+const playerCollider = new Capsule( new THREE.Vector3( 0, 10, 0 ), new THREE.Vector3( 0, 20, 0 ), 10 );
 const worldOctree = new Octree();
 const vector1 = new THREE.Vector3();
 const vector2 = new THREE.Vector3();
@@ -74,7 +75,8 @@ const axesHelper = new THREE.AxesHelper(100);
 scene.add(axesHelper);
 //-----GRID HELPER-----//
 const gridHelper = new THREE.GridHelper(1200, 50, 0x0000ff, 0x808080);
-//scene.add(gridHelper);
+gridHelper.position.y = 0;
+scene.add(gridHelper);
 //-----SKYBOX-----//
 new RGBELoader().load('./assets/belfast_sunset_puresky_2k.hdr', function(skyTexture) {
     skyTexture.mapping = THREE.EquirectangularReflectionMapping;
@@ -89,12 +91,17 @@ scene.add(target1);
 const loader = new GLTFLoader();
 loader.load('./assets/collision-world.glb', ( gltf ) => {
         gltf.scene.scale.set(30, 30, 30);
+        gltf.scene.position.y = 50;
         scene.add( gltf.scene );
+        worldOctree.fromGraphNode( gltf.scene );
         gltf.scene.traverse( ( child ) => {
             if ( child.isMesh ) {
                 child.castShadow = true;
                 child.receiveShadow = true;
                 child.material.color.set(0xFC98A8);
+                if ( child.material.map ) {
+                    child.material.map.anisotropy = 4;
+                }
             }
         });
         gltf.scene.traverse((child) => {
@@ -103,6 +110,10 @@ loader.load('./assets/collision-world.glb', ( gltf ) => {
             }
         });
     });
+//-----OCTREE HELPER-----//
+//const helper = new OctreeHelper( worldOctree );
+//helper.visible = true;
+//scene.add( helper );
 //-----SNOWFLAKE SPRITES-----//
 const points = addSFPoints();
 points.position.set(-1000 / 2, -500 / 2, -1000 / 2);
@@ -115,12 +126,12 @@ function animate() {
     // we look for collisions in substeps to mitigate the risk of
     // an object traversing another too quickly for detection.
     for ( let i = 0; i < STEPS_PER_FRAME; i ++ ) {
-        controls(keyStates, playerVelocity, camera, playerDirection);
+        controls(keyStates, playerVelocity, camera, playerDirection, deltaTime, playerOnFloor);
         //camera.updateProjectionMatrix();
         //console.log(camera.position);
-        //updatePlayer(deltaTime, playerOnFloor, playerVelocity, playerCollider, worldOctree, camera);
+        updatePlayer(deltaTime, playerOnFloor, playerVelocity, playerCollider, worldOctree, GRAVITY, camera);
         //updateSpheres(deltaTime, spheres, worldOctree, GRAVITY, playerCollider, playerVelocity, vector1, vector2, vector3);
-        teleportPlayerIfOob(camera, playerCollider);
+        //teleportPlayerIfOob(camera, playerCollider);
         
     }
     stats.update();

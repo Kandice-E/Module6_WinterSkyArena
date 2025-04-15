@@ -42,35 +42,55 @@ function getSideVector(camera, playerDirection) {
     playerDirection.cross( camera.up );
     return playerDirection;
 }
+function getJumpVector(camera, playerDirection) {
+    camera.getWorldDirection( playerDirection );
+    //playerDirection.y = 0;
+    playerDirection.normalize();
+    return playerDirection;
+}
 function controls(keyStates, playerVelocity, camera, playerDirection, deltaTime, playerOnFloor) {
     // gives a bit of air control
-    const speedDelta = deltaTime * ( playerOnFloor ? 25 : 8 );
-    camera.updateMatrixWorld();
+    const speedDelta = deltaTime * ( playerOnFloor ? 500 : 300 );
+    //camera.updateMatrixWorld();
     //console.log(camera.position);
-    const forward = new THREE.Vector3();
-    const side = new THREE.Vector3();
-    if (camera.matrixWorld) {
-        forward.setFromMatrixColumn(camera.matrixWorld, 0);
-        forward.crossVectors(camera.up, forward).normalize();
+    //console.log(camera.matrixWorld);
+    let forward = new THREE.Vector3();
+    let side = new THREE.Vector3();
+    let up = new THREE.Vector3();
+    //if (camera.matrixWorld) {
+        //forward.setFromMatrixColumn(camera.matrixWorld, 0);
+        //forward.crossVectors(camera.up, forward).normalize();
   
-        side.setFromMatrixColumn(camera.matrixWorld, 0).normalize();
-      }
-    if ( keyStates[ 'KeyW' ] ) {
-        playerVelocity.add( forward.clone().multiplyScalar( speedDelta ) );
+        //side.setFromMatrixColumn(camera.matrixWorld, 0).normalize();
+    //}
+    if ( keyStates[ 'w' ] ) {
+        forward.copy(getForwardVector(camera, playerDirection));
+        playerVelocity.add( forward.clone().multiplyScalar( speedDelta * 2 ) );
     }
-    if ( keyStates[ 'KeyS' ] ) {
-        playerVelocity.add( forward.clone().multiplyScalar( - speedDelta ) );
+    if ( keyStates[ 's' ] ) {
+        forward.copy(getForwardVector(camera, playerDirection));
+        playerVelocity.add( forward.clone().multiplyScalar( - speedDelta * 2 ) );
     }
-    if ( keyStates[ 'KeyA' ] ) {
-        playerVelocity.add( side.clone().multiplyScalar( - speedDelta ) );
+    if ( keyStates[ 'a' ] ) {
+        side.copy(getSideVector(camera, playerDirection));
+        playerVelocity.add( side.clone().multiplyScalar( - speedDelta * 2 ) );
     }
-    if ( keyStates[ 'KeyD' ] ) {
-        playerVelocity.add( side.clone().multiplyScalar( speedDelta ) );
+    if ( keyStates[ 'd' ] ) {
+        side.copy(getSideVector(camera, playerDirection));
+        playerVelocity.add( side.clone().multiplyScalar( speedDelta * 2 ) );
     }
-    if ( playerOnFloor ) {
-        if ( keyStates[ 'Space' ] ) {
-            playerVelocity.y = 15;
-        }
+    if ( playerOnFloor && keyStates[ 'Space' ] ) {
+        //console.log(playerOnFloor);
+        //playerOnFloor = true;
+        playerVelocity.y = 15;
+        console.log("Player Velocity Y:", playerVelocity.y);
+        //if ( keyStates[ 'Space' ] ) {
+            //console.log(playerOnFloor);
+            //playerVelocity.y = 0;
+            //up.copy(getJumpVector(camera, playerDirection));
+            //playerVelocity.y = 15;
+            //console.log("Player Velocity Y:", playerVelocity.y);
+        //}
     }
 }
 export { addControls, controls, eventListeners };

@@ -8,7 +8,7 @@ export function createScene() {
 export function createCamera() {
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.5, 6000);
     camera.position.z = 600;
-    camera.position.y = 100;
+    camera.position.y = -50;
     camera.position.x = -115;
     camera.rotation.order = 'YXZ';
     return camera;

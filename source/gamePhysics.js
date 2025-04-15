@@ -6,10 +6,10 @@ import * as THREE from 'three';
 //const sceneCamera = camera;
 function updatePlayer(deltaTime, playerOnFloor, playerVelocity, playerCollider, worldOctree, GRAVITY, camera) {
     let damping = Math.exp( - 4 * deltaTime ) - 1;
-    if ( ! playerOnFloor ) {
+    if ( !playerOnFloor ) {
         playerVelocity.y -= GRAVITY * deltaTime;
         // small air resistance
-        damping *= 0.1;
+        damping *= 0.6;
     }
     playerVelocity.addScaledVector( playerVelocity, damping);
     const deltaPosition = playerVelocity.clone().multiplyScalar( deltaTime );
@@ -20,6 +20,7 @@ function updatePlayer(deltaTime, playerOnFloor, playerVelocity, playerCollider, 
 }
 function playerCollisions(worldOctree, playerCollider, playerOnFloor, playerVelocity) {
     const result = worldOctree.capsuleIntersect( playerCollider );
+    //console.log(result);
     playerOnFloor = false;
     if ( result ) {
         playerOnFloor = result.normal.y > 0;
@@ -91,10 +92,10 @@ function spheresCollisions(spheres, vector1, vector2, vector3) {
     }
 }
 function teleportPlayerIfOob(camera, playerCollider) {
-    if ( camera.position.y <= - 25 ) {
-        playerCollider.start.set( 0, 0.35, 0 );
-        playerCollider.end.set( 0, 1, 0 );
-        playerCollider.radius = 0.35;
+    if ( camera.position.y <= -25 ) {
+        playerCollider.start.set( 0, 10, 0 );
+        playerCollider.end.set( 0, 20, 0 );
+        playerCollider.radius = 10;
         camera.position.copy( playerCollider.end );
         camera.rotation.set( 0, 0, 0 );
     }
