@@ -131,7 +131,7 @@ function animate() {
         //console.log(camera.position);
         updatePlayer(deltaTime, playerOnFloor, playerVelocity, playerCollider, worldOctree, GRAVITY, camera);
         //updateSpheres(deltaTime, spheres, worldOctree, GRAVITY, playerCollider, playerVelocity, vector1, vector2, vector3);
-        //teleportPlayerIfOob(camera, playerCollider);
+        teleportPlayerIfOob(camera, playerCollider);
         
     }
     stats.update();

@@ -8,8 +8,12 @@ function addControls(camera, domElement) {
 }
 function eventListeners(mouseTime, keyStates, camera, spheres, sphereIdx, playerCollider, playerVelocity, playerDirection) {
     document.addEventListener( 'keydown', ( event ) => {
-        console.log("Key down: ", event.key);
-        console.log("Velocity:", playerVelocity);
+        //console.log("Key down: ", event.key);
+        //console.log("Velocity:", playerVelocity);
+        if ( event.key === ' ') {
+            event.preventDefault();
+            console.log("Space bar pressed!");
+        }
         keyStates[ event.key ] = true;
     } );
     document.addEventListener( 'keyup', ( event ) => {
@@ -79,10 +83,11 @@ function controls(keyStates, playerVelocity, camera, playerDirection, deltaTime,
         side.copy(getSideVector(camera, playerDirection));
         playerVelocity.add( side.clone().multiplyScalar( speedDelta * 2 ) );
     }
-    if ( playerOnFloor && keyStates[ 'Space' ] ) {
+    if ( keyStates[ ' ' ] ) {
         //console.log(playerOnFloor);
         //playerOnFloor = true;
-        playerVelocity.y = 15;
+        console.log("Velocity:", playerVelocity);
+        playerVelocity.y = 250;
         console.log("Player Velocity Y:", playerVelocity.y);
         //if ( keyStates[ 'Space' ] ) {
             //console.log(playerOnFloor);

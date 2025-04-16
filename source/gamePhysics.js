@@ -7,7 +7,7 @@ import * as THREE from 'three';
 function updatePlayer(deltaTime, playerOnFloor, playerVelocity, playerCollider, worldOctree, GRAVITY, camera) {
     let damping = Math.exp( - 4 * deltaTime ) - 1;
     if ( !playerOnFloor ) {
-        playerVelocity.y -= GRAVITY * deltaTime;
+        playerVelocity.y -= GRAVITY * deltaTime; // 5x gravity when not on the floor
         // small air resistance
         damping *= 0.6;
     }
