@@ -7,9 +7,10 @@ import * as THREE from 'three';
 function updatePlayer(deltaTime, playerOnFloor, playerVelocity, playerCollider, worldOctree, GRAVITY, camera) {
     let damping = Math.exp( - 4 * deltaTime ) - 1;
     if ( !playerOnFloor ) {
-        playerVelocity.y -= GRAVITY * deltaTime; // 5x gravity when not on the floor
+        //let gravity = GRAVITY * 3;
+        playerVelocity.y -= GRAVITY * deltaTime;
         // small air resistance
-        damping *= 0.6;
+        damping *= 0.8;
     }
     playerVelocity.addScaledVector( playerVelocity, damping);
     const deltaPosition = playerVelocity.clone().multiplyScalar( deltaTime );
@@ -93,9 +94,9 @@ function spheresCollisions(spheres, vector1, vector2, vector3) {
 }
 function teleportPlayerIfOob(camera, playerCollider) {
     if ( camera.position.y <= -25 ) {
-        playerCollider.start.set( 0, 10, 0 );
-        playerCollider.end.set( 0, 20, 0 );
-        playerCollider.radius = 10;
+        playerCollider.start.set( 0, 0.35, 0 );
+        playerCollider.end.set( 0, 1, 0 );
+        playerCollider.radius = 0.35;
         camera.position.copy( playerCollider.end );
         camera.rotation.set( 0, 0, 0 );
     }
