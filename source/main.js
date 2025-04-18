@@ -20,12 +20,12 @@ const STEPS_PER_FRAME = 5;
 const playerVelocity = new THREE.Vector3();
 const playerDirection = new THREE.Vector3();
 let playerOnFloor = false;
-const GRAVITY = 20;
+const GRAVITY = 30;
 const NUM_SPHERES = 100;
 const SPHERE_RADIUS = 0.2;
 const spheres = [];
 let sphereIdx = 0;
-const playerCollider = new Capsule( new THREE.Vector3( 0, 0.15, 0 ), new THREE.Vector3( 0, 1, 0 ), 0.15 );
+const playerCollider = new Capsule( new THREE.Vector3( 0, 0.15, 0 ), new THREE.Vector3( 0, 1, 0 ), 0.2 );
 const worldOctree = new Octree();
 const vector1 = new THREE.Vector3();
 const vector2 = new THREE.Vector3();
@@ -49,7 +49,7 @@ function onWindowResize() {
 window.addEventListener('resize', onWindowResize, false);
 //-----ADD SPHERES-----//
 const sphereGeometry = new THREE.IcosahedronGeometry( SPHERE_RADIUS, 5 );
-const sphereMaterial = new THREE.MeshLambertMaterial( { color: 0xdede8d } );
+const sphereMaterial = new THREE.MeshBasicMaterial( { color: 0xdede8d } );
 for ( let i = 0; i < NUM_SPHERES; i ++ ) {
     const sphere = new THREE.Mesh( sphereGeometry, sphereMaterial );
     sphere.castShadow = true;
@@ -65,7 +65,7 @@ for ( let i = 0; i < NUM_SPHERES; i ++ ) {
 eventListeners(mouseTime, keyStates, camera, spheres, sphereIdx, playerCollider, playerVelocity, playerDirection);
 //-----FOG-----//
 //scene.fog = new THREE.FogExp2(0x100000, 0.001);
-scene.fog = new THREE.Fog(0x100000, 0, 50);
+scene.fog = new THREE.Fog(0x100000, 0, 35);
 //-----LIGHTS-----//
 //addLights(scene);
 //-----CONTROLS-----//
@@ -117,12 +117,12 @@ helper.visible = true;
 scene.add( helper );
 //-----SNOWFLAKE SPRITES-----//
 const points = addSFPoints();
-points.position.set(-1000 / 2, -500 / 2, -1000 / 2);
-//scene.add(points);
+points.position.set(-23, -4, -23);
+scene.add(points);
 //-----UPDATE SCENE-----//
 function animate() {
     requestAnimationFrame(animate);
-    //animatePoints(points);
+    animatePoints(points);
     const deltaTime = Math.min( 0.05, clock.getDelta() ) / STEPS_PER_FRAME;
     // we look for collisions in substeps to mitigate the risk of
     // an object traversing another too quickly for detection.
@@ -131,7 +131,7 @@ function animate() {
         //camera.updateProjectionMatrix();
         //console.log(camera.position);
         updatePlayer(deltaTime, playerOnFloor, playerVelocity, playerCollider, worldOctree, GRAVITY, camera);
-        //updateSpheres(deltaTime, spheres, worldOctree, GRAVITY, playerCollider, playerVelocity, vector1, vector2, vector3);
+        updateSpheres(deltaTime, spheres, worldOctree, GRAVITY, playerCollider, playerVelocity, vector1, vector2, vector3);
         teleportPlayerIfOob(camera, playerCollider);
         
     }

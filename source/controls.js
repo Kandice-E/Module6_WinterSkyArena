@@ -74,6 +74,9 @@ function controls(keyStates, playerVelocity, camera, playerDirection, deltaTime,
         console.log("Velocity:", playerVelocity);
         playerVelocity.y = 15;
         console.log("Player Velocity Y:", playerVelocity.y);
+        //if ( !playerOnFloor) {
+            //playerVelocity.y = 15;
+        //}
     }
 }
 export { addControls, controls, eventListeners };

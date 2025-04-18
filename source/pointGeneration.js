@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 
     const vertices = [];
-    const numSprites = 30000;
-    const range = 1200;
+    const numSprites = 2000;
+    const range = 50;
     const boundingBox = new THREE.Box3(new THREE.Vector3(0,0,0), new THREE.Vector3(range, range / 2, range));
 
 //Returns a random sprite size between a specified range
@@ -34,7 +34,7 @@ export function addSFPoints() {
     const texture = new THREE.TextureLoader().load("./assets/snowflake2.png");
     //Create points material
     const pointMaterial = new THREE.PointsMaterial({
-        size: randomSize(1.5, 2),
+        size: randomSize(0.003, 0.005),
         vertexColors: false,
         color: 0xffffff,
         map: texture,
