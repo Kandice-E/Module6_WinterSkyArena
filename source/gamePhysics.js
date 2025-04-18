@@ -40,8 +40,8 @@ function updateSpheres(deltaTime, spheres, worldOctree, GRAVITY, playerCollider,
             sphere.velocity.addScaledVector( result.normal, - result.normal.dot( sphere.velocity ) * 1.5 );
             sphere.collider.center.add( result.normal.multiplyScalar( result.depth ) );
         } else {
-            let gravity = GRAVITY * 0.3;
-            sphere.velocity.y -= gravity * deltaTime;
+            
+            sphere.velocity.y -= GRAVITY * deltaTime;
         }
         const damping = Math.exp( - 1.5 * deltaTime ) - 1;
         sphere.velocity.addScaledVector( sphere.velocity, damping );
@@ -105,10 +105,11 @@ function teleportPlayerIfOob(camera, playerCollider) {
 }
 function throwBall(spheres, sphereIdx, camera, playerCollider, playerVelocity, playerDirection, mouseTime) {
     const sphere = spheres[ sphereIdx ];
+    sphere.mesh.visible = true;
     camera.getWorldDirection( playerDirection );
     sphere.collider.center.copy( playerCollider.end ).addScaledVector( playerDirection, playerCollider.radius * 1.5 );
     // throw the ball with more force if we hold the button longer, and if we move forward
-    const impulse = 30 + 100 * ( 1 - Math.exp( ( mouseTime - performance.now() ) * 0.001 ) );
+    const impulse = 50 + 100 * ( 1 - Math.exp( ( mouseTime - performance.now() ) * 0.001 ) );
     sphere.velocity.copy( playerDirection ).multiplyScalar( impulse );
     sphere.velocity.addScaledVector( playerVelocity, 2 );
     sphereIdx = ( sphereIdx + 1 ) % spheres.length;
