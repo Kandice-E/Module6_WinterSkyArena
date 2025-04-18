@@ -6,17 +6,22 @@ function addControls(camera, domElement) {
     const orbitControls = new OrbitControls(camera, domElement);
     return orbitControls;
 }
-function eventListeners(mouseTime, keyStates, camera, spheres, sphereIdx, playerCollider, playerVelocity, playerDirection) {
+function eventListeners(mouseTime, keyStates, camera, spheres, sphereIdx, playerCollider, playerVelocity, playerDirection, playerOnFloor) {
     document.addEventListener( 'keydown', ( event ) => {
         //console.log("Key down: ", event.key);
         //console.log("Velocity:", playerVelocity);
-        if ( event.key === ' ') {
+        if ( event.key === ' ' ) {
             //event.preventDefault();
             console.log("Space bar pressed!");
+            //playerOnFloor = true;
         }
         keyStates[ event.key ] = true;
     } );
     document.addEventListener( 'keyup', ( event ) => {
+        if ( event.key === ' ') {
+            //playerOnFloor = false;
+            console.log("Space bar released!");
+        }
         keyStates[ event.key ] = false;
     } );
     document.addEventListener( 'mousedown', () => {
@@ -48,7 +53,7 @@ function getSideVector(camera, playerDirection) {
 }
 function controls(keyStates, playerVelocity, camera, playerDirection, deltaTime, playerOnFloor) {
     // gives a bit of air control
-    const speedDelta = deltaTime * ( playerOnFloor ? 75 : 8 );
+    const speedDelta = deltaTime * ( playerOnFloor.onFloor ? 75 : 8 );
    
     let forward = new THREE.Vector3();
     let side = new THREE.Vector3();
@@ -70,7 +75,7 @@ function controls(keyStates, playerVelocity, camera, playerDirection, deltaTime,
         side.copy(getSideVector(camera, playerDirection));
         playerVelocity.add( side.clone().multiplyScalar( speedDelta * 3 ) );
     }
-    if ( keyStates[ ' ' ] ) {
+    if ( keyStates[ ' ' ] && playerOnFloor.onFloor ) {
         console.log("Velocity:", playerVelocity);
         playerVelocity.y = 15;
         console.log("Player Velocity Y:", playerVelocity.y);

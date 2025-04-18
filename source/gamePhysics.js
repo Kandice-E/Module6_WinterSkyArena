@@ -6,9 +6,9 @@ import * as THREE from 'three';
 //const sceneCamera = camera;
 function updatePlayer(deltaTime, playerOnFloor, playerVelocity, playerCollider, worldOctree, GRAVITY, camera) {
     let damping = Math.exp( - 4 * deltaTime ) - 1;
-    if ( !playerOnFloor ) {
-        //let gravity = GRAVITY * 3;
-        playerVelocity.y -= GRAVITY * deltaTime;
+    if ( !playerOnFloor.onFloor ) {
+        let gravity = GRAVITY * 0.8;
+        playerVelocity.y -= gravity * deltaTime;
         // small air resistance
         damping *= 0.8;
     }
@@ -22,10 +22,10 @@ function updatePlayer(deltaTime, playerOnFloor, playerVelocity, playerCollider, 
 function playerCollisions(worldOctree, playerCollider, playerOnFloor, playerVelocity) {
     const result = worldOctree.capsuleIntersect( playerCollider );
     //console.log(result);
-    playerOnFloor = false;
+    playerOnFloor.onFloor = false;
     if ( result ) {
-        playerOnFloor = result.normal.y > 0;
-        if ( ! playerOnFloor ) {
+        playerOnFloor.onFloor = result.normal.y > 0;
+        if ( ! playerOnFloor.onFloor ) {
             playerVelocity.addScaledVector( result.normal, - result.normal.dot( playerVelocity ) );
         }
         if ( result.depth >= 1e-10 ) {
@@ -97,7 +97,7 @@ function spheresCollisions(spheres, vector1, vector2, vector3) {
 }
 function teleportPlayerIfOob(camera, playerCollider) {
     if ( camera.position.y <= -25 ) {
-        playerCollider.start.set( 0, 0.35, 0 );
+        playerCollider.start.set( 0, 0.2, 0 );
         playerCollider.end.set( 0, 1, 0 );
         playerCollider.radius = 0.2;
         camera.position.copy( playerCollider.end );
@@ -109,7 +109,7 @@ function throwBall(spheres, sphereIdx, camera, playerCollider, playerVelocity, p
     camera.getWorldDirection( playerDirection );
     sphere.collider.center.copy( playerCollider.end ).addScaledVector( playerDirection, playerCollider.radius * 1.5 );
     // throw the ball with more force if we hold the button longer, and if we move forward
-    const impulse = 70 + 100 * ( 1 - Math.exp( ( mouseTime - performance.now() ) * 0.001 ) );
+    const impulse = 30 + 100 * ( 1 - Math.exp( ( mouseTime - performance.now() ) * 0.001 ) );
     sphere.velocity.copy( playerDirection ).multiplyScalar( impulse );
     sphere.velocity.addScaledVector( playerVelocity, 2 );
     sphereIdx = ( sphereIdx + 1 ) % spheres.length;

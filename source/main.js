@@ -19,13 +19,13 @@ let mouseTime = 0;
 const STEPS_PER_FRAME = 5;
 const playerVelocity = new THREE.Vector3();
 const playerDirection = new THREE.Vector3();
-let playerOnFloor = false;
+let playerOnFloor = { onFloor: false };
 const GRAVITY = 30;
 const NUM_SPHERES = 100;
 const SPHERE_RADIUS = 0.2;
 const spheres = [];
 let sphereIdx = 0;
-const playerCollider = new Capsule( new THREE.Vector3( 0, 0.15, 0 ), new THREE.Vector3( 0, 1, 0 ), 0.2 );
+const playerCollider = new Capsule( new THREE.Vector3( 0, 0.2, 0 ), new THREE.Vector3( 0, 1, 0 ), 0.2 );
 const worldOctree = new Octree();
 const vector1 = new THREE.Vector3();
 const vector2 = new THREE.Vector3();
@@ -62,7 +62,7 @@ for ( let i = 0; i < NUM_SPHERES; i ++ ) {
     } );
 }
 //-----ADD CONTROLS-----//
-eventListeners(mouseTime, keyStates, camera, spheres, sphereIdx, playerCollider, playerVelocity, playerDirection);
+eventListeners(mouseTime, keyStates, camera, spheres, sphereIdx, playerCollider, playerVelocity, playerDirection, playerOnFloor);
 //-----FOG-----//
 //scene.fog = new THREE.FogExp2(0x100000, 0.001);
 scene.fog = new THREE.Fog(0x100000, 0, 35);
