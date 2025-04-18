@@ -53,7 +53,7 @@ function getSideVector(camera, playerDirection) {
 }
 function controls(keyStates, playerVelocity, camera, playerDirection, deltaTime, playerOnFloor) {
     // gives a bit of air control
-    const speedDelta = deltaTime * ( playerOnFloor.onFloor ? 75 : 8 );
+    const speedDelta = deltaTime * ( playerOnFloor.onFloor ? 30 : 8 );
    
     let forward = new THREE.Vector3();
     let side = new THREE.Vector3();
@@ -61,19 +61,19 @@ function controls(keyStates, playerVelocity, camera, playerDirection, deltaTime,
     
     if ( keyStates[ 'w' ] ) {
         forward.copy(getForwardVector(camera, playerDirection));
-        playerVelocity.add( forward.clone().multiplyScalar( speedDelta * 3 ) );
+        playerVelocity.add( forward.clone().multiplyScalar( speedDelta ) );
     }
     if ( keyStates[ 's' ] ) {
         forward.copy(getForwardVector(camera, playerDirection));
-        playerVelocity.add( forward.clone().multiplyScalar( - speedDelta * 3 ) );
+        playerVelocity.add( forward.clone().multiplyScalar( - speedDelta ) );
     }
     if ( keyStates[ 'a' ] ) {
         side.copy(getSideVector(camera, playerDirection));
-        playerVelocity.add( side.clone().multiplyScalar( - speedDelta * 3 ) );
+        playerVelocity.add( side.clone().multiplyScalar( - speedDelta ) );
     }
     if ( keyStates[ 'd' ] ) {
         side.copy(getSideVector(camera, playerDirection));
-        playerVelocity.add( side.clone().multiplyScalar( speedDelta * 3 ) );
+        playerVelocity.add( side.clone().multiplyScalar( speedDelta ) );
     }
     if ( keyStates[ ' ' ] && playerOnFloor.onFloor ) {
         console.log("Velocity:", playerVelocity);
