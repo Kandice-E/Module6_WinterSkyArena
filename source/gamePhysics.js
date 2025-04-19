@@ -2,7 +2,7 @@ import * as THREE from 'three';
 //import { Capsule } from 'three/examples/jsm/math/Capsule.js';
 //import { Octree } from 'three/examples/jsm/math/Octree.js';
 //import { camera } from './main.js';
-import { endGame } from './main.js';
+import { endGame, updateScoreDisplay } from './main.js';
 
 //const sceneCamera = camera;
 function updatePlayer(deltaTime, playerOnFloor, playerVelocity, playerCollider, worldOctree, GRAVITY, camera) {
@@ -41,7 +41,6 @@ function updateSpheres(deltaTime, spheres, worldOctree, GRAVITY, playerCollider,
             sphere.velocity.addScaledVector( result.normal, - result.normal.dot( sphere.velocity ) * 1.5 );
             sphere.collider.center.add( result.normal.multiplyScalar( result.depth ) );
         } else {
-            
             sphere.velocity.y -= GRAVITY * deltaTime;
         }
         const damping = Math.exp( - 1.5 * deltaTime ) - 1;
@@ -122,6 +121,25 @@ function checkPlayerEnemyCollisions(playerCollider, enemies) {
         }
     }
 }
+function checkBallTargetCollisions(spheres, targets, score) {
+    spheres.forEach (sphere => {
+        for (const target of targets) {
+            const distance = sphere.collider.center.distanceTo(target.collider.center);
+            const combinedRadius = sphere.collider.radius + target.collider.radius;
+            if (distance < combinedRadius) {
+                console.log("Ball hit target!");
+                score.counter += 1;;
+                updateScoreDisplay(score); // Update the score display
+                // Move target to a new random position
+                const randomX = Math.random() * 30 - 15; // Adjust based on your octree bounds
+                const randomY = Math.random() * 10 + 1;  // Adjust based on your octree bounds
+                const randomZ = Math.random() * 30 - 15; // Adjust based on your octree bounds
+                target.mesh.position.set(randomX, randomY, randomZ);
+                target.collider.center.set(randomX, randomY, randomZ); // Update the collider
+            }
+        }
+    });
+}
 function teleportPlayerIfOob(camera, playerCollider) {
     if ( camera.position.y <= -25 ) {
         playerCollider.start.set( 0, 0.35, 0 );
@@ -143,4 +161,4 @@ function throwBall(spheres, sphereIdx, camera, playerCollider, playerVelocity, p
     sphere.velocity.addScaledVector( playerVelocity, 2 );
     sphereIdx = ( sphereIdx + 1 ) % spheres.length;
 }
-export { updatePlayer, updateSpheres, teleportPlayerIfOob, throwBall, updateEnemies, checkPlayerEnemyCollisions};
+export { updatePlayer, updateSpheres, teleportPlayerIfOob, throwBall, updateEnemies, checkPlayerEnemyCollisions, checkBallTargetCollisions};

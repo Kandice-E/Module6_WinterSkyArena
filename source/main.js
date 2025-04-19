@@ -1,10 +1,9 @@
 import * as THREE from 'three';
 import { addControls, controls, eventListeners } from './controls.js'; 
-import { updatePlayer, updateSpheres, teleportPlayerIfOob, updateEnemies, checkPlayerEnemyCollisions } from './gamePhysics.js';
+import { updatePlayer, updateSpheres, teleportPlayerIfOob, updateEnemies, checkPlayerEnemyCollisions, checkBallTargetCollisions } from './gamePhysics.js';
 import { createScene, createCamera, createRenderer } from './sceneSetup.js';
 import { addLights } from './lights.js';
 import Stats from 'three/examples/jsm/libs/stats.module.js';
-import { addTarget } from './geometries.js';
 import { addSFPoints } from './pointGeneration.js';
 import { animatePoints } from './spriteAnimation.js';
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
@@ -13,7 +12,7 @@ import { Capsule } from 'three/examples/jsm/math/Capsule.js';
 import { Octree } from 'three/examples/jsm/math/Octree.js';
 import { OctreeHelper } from 'three/examples/jsm/helpers/OctreeHelper.js';
 
-//-----VARIABLES FOR IMPORT FUNCTIONS-----//
+//-----GLOBAL VARIABLES FOR IMPORT FUNCTIONS-----//
 const keyStates = {};
 let mouseTime = 0;
 const STEPS_PER_FRAME = 5;
@@ -21,14 +20,18 @@ const playerVelocity = new THREE.Vector3();
 const playerDirection = new THREE.Vector3();
 let playerOnFloor = { onFloor: false };
 const GRAVITY = 30;
-const NUM_SPHERES = 100;
+const NUM_SPHERES = 10;
 const SPHERE_RADIUS = 0.2;
 const spheres = [];
 let sphereIdx = 0;
-const NUM_ENEMIES = 20; // Number of enemies
+const NUM_ENEMIES = 50; // Number of enemies
 const ENEMY_RADIUS = 0.5; // Radius of enemy collider
 const enemies = []; // Array to store enemies
 const enemyBounds = { minY: -2, maxY: 10};
+const NUM_TARGETS = 10; // Number of targets
+const TARGET_RADIUS = 0.5; // Size of the sphere target
+const targets = []; // Array to store targets
+let score = {counter: 0}; // Initialize score counter
 const playerCollider = new Capsule( new THREE.Vector3( 0, 0.35, 0 ), new THREE.Vector3( 0, 1, 0 ), 0.35 );
 const worldOctree = new Octree();
 const vector1 = new THREE.Vector3();
@@ -82,6 +85,45 @@ for (let i = 0; i < NUM_ENEMIES; i++) {
         direction: 1, // 1 for moving up, -1 for moving down
     });    
 }
+//-----ADD TARGETS-----//
+const targetGeometry = new THREE.SphereGeometry(TARGET_RADIUS, 16, 16);
+const targetMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 }); // Green color for targets
+for (let i = 0; i < NUM_TARGETS; i++) {
+    const target = new THREE.Mesh(targetGeometry, targetMaterial);
+    target.castShadow = true;
+    target.receiveShadow = true;
+    scene.add(target);
+    // Place targets randomly within the octree bounds
+    const randomX = Math.random() * 30 - 10; // Adjust based on your octree bounds
+    const randomY = Math.random() * 2;  // Adjust based on your octree bounds
+    const randomZ = Math.random() * 30 - 10; // Adjust based on your octree bounds
+    target.position.set(randomX, randomY, randomZ);
+    targets.push({
+        mesh: target,
+        collider: new THREE.Sphere(new THREE.Vector3(randomX, randomY, randomZ), TARGET_RADIUS),
+    });
+}
+//-----ADD SCORE DISPLAY-----//
+const scoreDisplay = document.createElement('div');
+scoreDisplay.id = 'score'; // Add an ID for easy access
+scoreDisplay.style.position = 'absolute';
+scoreDisplay.style.top = '10px';
+scoreDisplay.style.right = '10px';
+scoreDisplay.style.color = 'white';
+scoreDisplay.style.fontSize = '24px';
+scoreDisplay.innerText = `Score: ${score.counter}`;
+document.body.appendChild(scoreDisplay);
+//-----UPDATE SCORE DISPLAY-----//
+export function updateScoreDisplay(score) {
+    console.log("Score updated:", score.counter); // Debugging line
+    const scoreElement = document.getElementById('score');
+    if (scoreElement) {
+        console.log("Score element found!"); // Debugging line
+        scoreElement.innerText = `Score: ${score.counter}`;
+    } else {
+        console.error("Score element not found!");
+    }
+}
 //-----ADD EVENT LISTENERS FOR CONTROLS-----//
 eventListeners(mouseTime, keyStates, camera, spheres, sphereIdx, playerCollider, playerVelocity, playerDirection, playerOnFloor);
 //-----FOG-----//
@@ -104,9 +146,7 @@ new RGBELoader().load('./assets/belfast_sunset_puresky_2k.hdr', function(skyText
     scene.environment = skyTexture;
     scene.environmentIntensity = 0.5;
 })
-//-----TARGET-----//
-const target1 = addTarget();
-//scene.add(target1);
+
 //-----LOAD MODEL-----//
 const loader = new GLTFLoader();
 loader.load('./assets/collision-world.glb', ( gltf ) => {
@@ -153,8 +193,8 @@ function animate() {
         updateSpheres(deltaTime, spheres, worldOctree, GRAVITY, playerCollider, playerVelocity, vector1, vector2, vector3);
         updateEnemies(deltaTime, enemies, enemyBounds); // Update enemies within the octree
         checkPlayerEnemyCollisions(playerCollider, enemies); // Check for collisions
+        checkBallTargetCollisions(spheres, targets, score); // Check for collisions with targets
         teleportPlayerIfOob(camera, playerCollider);
-        
     }
     stats.update();
     //orbitControls.update();
