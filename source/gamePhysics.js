@@ -1,7 +1,4 @@
 import * as THREE from 'three';
-//import { Capsule } from 'three/examples/jsm/math/Capsule.js';
-//import { Octree } from 'three/examples/jsm/math/Octree.js';
-//import { camera } from './main.js';
 import { endGame, updateScoreDisplay } from './main.js';
 
 //const sceneCamera = camera;
@@ -16,12 +13,10 @@ function updatePlayer(deltaTime, playerOnFloor, playerVelocity, playerCollider, 
     const deltaPosition = playerVelocity.clone().multiplyScalar( deltaTime );
     playerCollider.translate( deltaPosition );
     playerCollisions(worldOctree, playerCollider, playerOnFloor, playerVelocity);
-    //console.log(camera.position);
     camera.position.copy( playerCollider.end );
 }
 function playerCollisions(worldOctree, playerCollider, playerOnFloor, playerVelocity) {
     const result = worldOctree.capsuleIntersect( playerCollider );
-    //console.log(result);
     playerOnFloor.onFloor = false;
     if ( result ) {
         playerOnFloor.onFloor = result.normal.y > 0;
@@ -72,8 +67,6 @@ function playerSphereCollision(sphere, playerCollider, playerVelocity, vector1, 
     }
 }
 function spheresCollisions(spheres, vector1, vector2, vector3) {
-    //console.log("Spheres:", spheres);
-    //let length = spheres.length();
     for ( let i = 0, length = spheres.length; i < length; i ++ ) {
         const s1 = spheres[ i ];
         for ( let j = i + 1; j < length; j ++ ) {
@@ -98,14 +91,12 @@ function updateEnemies(deltaTime, enemies, enemyBounds) {
     enemies.forEach(enemy => {
         // Update enemy position based on velocity and direction
         enemy.collider.center.y += enemy.velocity.y * enemy.direction * deltaTime;
-
         // Reverse direction if the enemy reaches the upper or lower bounds
         if (enemy.collider.center.y > enemyBounds.maxY) {
             enemy.direction = -1; // Move down
         } else if (enemy.collider.center.y < enemyBounds.minY) {
             enemy.direction = 1; // Move up
         }
-
         // Update enemy mesh position
         enemy.mesh.position.copy(enemy.collider.center);
     });

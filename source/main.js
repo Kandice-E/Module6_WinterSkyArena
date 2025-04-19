@@ -132,13 +132,6 @@ scene.fog = new THREE.Fog(0x100000, 0, 35);
 //addLights(scene);
 //-----CONTROLS-----//
 //const orbitControls = addControls(camera, renderer.domElement);
-//-----AXIS HELPER-----//
-const axesHelper = new THREE.AxesHelper(100);
-scene.add(axesHelper);
-//-----GRID HELPER-----//
-const gridHelper = new THREE.GridHelper(1200, 50, 0x0000ff, 0x808080);
-gridHelper.position.y = 0;
-//scene.add(gridHelper);
 //-----SKYBOX-----//
 new RGBELoader().load('./assets/belfast_sunset_puresky_2k.hdr', function(skyTexture) {
     skyTexture.mapping = THREE.EquirectangularReflectionMapping;
@@ -146,7 +139,6 @@ new RGBELoader().load('./assets/belfast_sunset_puresky_2k.hdr', function(skyText
     scene.environment = skyTexture;
     scene.environmentIntensity = 0.5;
 })
-
 //-----LOAD MODEL-----//
 const loader = new GLTFLoader();
 loader.load('./assets/collision-world.glb', ( gltf ) => {
@@ -187,8 +179,6 @@ function animate() {
     // an object traversing another too quickly for detection.
     for ( let i = 0; i < STEPS_PER_FRAME; i ++ ) {
         controls(keyStates, playerVelocity, camera, playerDirection, deltaTime, playerOnFloor);
-        //camera.updateProjectionMatrix();
-        //console.log(camera.position);
         updatePlayer(deltaTime, playerOnFloor, playerVelocity, playerCollider, worldOctree, GRAVITY, camera);
         updateSpheres(deltaTime, spheres, worldOctree, GRAVITY, playerCollider, playerVelocity, vector1, vector2, vector3);
         updateEnemies(deltaTime, enemies, enemyBounds); // Update enemies within the octree
@@ -197,8 +187,6 @@ function animate() {
         teleportPlayerIfOob(camera, playerCollider);
     }
     stats.update();
-    //orbitControls.update();
-    //firstPersonControls.update(0.1);
     renderer.render(scene, camera);
 };
 animate();
