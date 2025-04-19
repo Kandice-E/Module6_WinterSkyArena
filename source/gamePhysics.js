@@ -2,6 +2,7 @@ import * as THREE from 'three';
 //import { Capsule } from 'three/examples/jsm/math/Capsule.js';
 //import { Octree } from 'three/examples/jsm/math/Octree.js';
 //import { camera } from './main.js';
+import { endGame } from './main.js';
 
 //const sceneCamera = camera;
 function updatePlayer(deltaTime, playerOnFloor, playerVelocity, playerCollider, worldOctree, GRAVITY, camera) {
@@ -94,6 +95,33 @@ function spheresCollisions(spheres, vector1, vector2, vector3) {
         }
     }
 }
+function updateEnemies(deltaTime, enemies, enemyBounds) {
+    enemies.forEach(enemy => {
+        // Update enemy position based on velocity and direction
+        enemy.collider.center.y += enemy.velocity.y * enemy.direction * deltaTime;
+
+        // Reverse direction if the enemy reaches the upper or lower bounds
+        if (enemy.collider.center.y > enemyBounds.maxY) {
+            enemy.direction = -1; // Move down
+        } else if (enemy.collider.center.y < enemyBounds.minY) {
+            enemy.direction = 1; // Move up
+        }
+
+        // Update enemy mesh position
+        enemy.mesh.position.copy(enemy.collider.center);
+    });
+}
+function checkPlayerEnemyCollisions(playerCollider, enemies) {
+    for (const enemy of enemies) {
+        const distance = playerCollider.start.distanceTo(enemy.collider.center);
+        const combinedRadius = playerCollider.radius + enemy.collider.radius;
+        if (distance < combinedRadius) {
+            console.log("Game Over! Player collided with an enemy.");
+            endGame(); // Call the game-over function
+            break;
+        }
+    }
+}
 function teleportPlayerIfOob(camera, playerCollider) {
     if ( camera.position.y <= -25 ) {
         playerCollider.start.set( 0, 0.35, 0 );
@@ -101,6 +129,7 @@ function teleportPlayerIfOob(camera, playerCollider) {
         playerCollider.radius = 0.35;
         camera.position.copy( playerCollider.end );
         camera.rotation.set( 0, 0, 0 );
+        endGame();
     }
 }
 function throwBall(spheres, sphereIdx, camera, playerCollider, playerVelocity, playerDirection, mouseTime) {
@@ -114,4 +143,4 @@ function throwBall(spheres, sphereIdx, camera, playerCollider, playerVelocity, p
     sphere.velocity.addScaledVector( playerVelocity, 2 );
     sphereIdx = ( sphereIdx + 1 ) % spheres.length;
 }
-export { updatePlayer, updateSpheres, teleportPlayerIfOob, throwBall};
+export { updatePlayer, updateSpheres, teleportPlayerIfOob, throwBall, updateEnemies, checkPlayerEnemyCollisions};

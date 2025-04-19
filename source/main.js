@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { addControls, controls, eventListeners } from './controls.js'; 
-import { updatePlayer, updateSpheres, teleportPlayerIfOob } from './gamePhysics.js';
+import { updatePlayer, updateSpheres, teleportPlayerIfOob, updateEnemies, checkPlayerEnemyCollisions } from './gamePhysics.js';
 import { createScene, createCamera, createRenderer } from './sceneSetup.js';
 import { addLights } from './lights.js';
 import Stats from 'three/examples/jsm/libs/stats.module.js';
@@ -25,6 +25,10 @@ const NUM_SPHERES = 100;
 const SPHERE_RADIUS = 0.2;
 const spheres = [];
 let sphereIdx = 0;
+const NUM_ENEMIES = 20; // Number of enemies
+const ENEMY_RADIUS = 0.5; // Radius of enemy collider
+const enemies = []; // Array to store enemies
+const enemyBounds = { minY: -2, maxY: 10};
 const playerCollider = new Capsule( new THREE.Vector3( 0, 0.35, 0 ), new THREE.Vector3( 0, 1, 0 ), 0.35 );
 const worldOctree = new Octree();
 const vector1 = new THREE.Vector3();
@@ -34,12 +38,10 @@ const vector3 = new THREE.Vector3();
 const clock = new THREE.Clock();
 const scene = createScene();
 const camera = createCamera();
-//export { camera };
 const renderer = createRenderer();
 //Add FPS stats
 const stats = Stats();
 document.body.appendChild(stats.dom);
-
 //-----HANDLE WINDOW RESIZING-----//
 function onWindowResize() {
     camera.aspect = window.innerWidth / window.innerHeight;
@@ -61,16 +63,33 @@ for ( let i = 0; i < NUM_SPHERES; i ++ ) {
         velocity: new THREE.Vector3()
     } );
 }
-//-----ADD CONTROLS-----//
+//-----ADD ENEMIES-----//
+const enemyGeometry = new THREE.SphereGeometry(ENEMY_RADIUS, 16, 16);
+const enemyMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 }); // Red color for enemies
+for (let i = 0; i < NUM_ENEMIES; i++) {
+    const enemy = new THREE.Mesh(enemyGeometry, enemyMaterial);
+    enemy.castShadow = true;
+    enemy.receiveShadow = true;
+    scene.add(enemy);
+    // Place enemies randomly within the octree bounds
+    const randomX = Math.random() * 30 - 10; // Adjust based on your octree bounds
+    const randomY = Math.random() * 5 + 1;   // Adjust based on your octree bounds
+    const randomZ = Math.random() * 30 - 10; // Adjust based on your octree bounds
+    enemies.push({
+        mesh: enemy,
+        collider: new THREE.Sphere(new THREE.Vector3(randomX, randomY, randomZ), ENEMY_RADIUS),
+        velocity: new THREE.Vector3(0, Math.random() * 2 + 1, 0), // Random movement
+        direction: 1, // 1 for moving up, -1 for moving down
+    });    
+}
+//-----ADD EVENT LISTENERS FOR CONTROLS-----//
 eventListeners(mouseTime, keyStates, camera, spheres, sphereIdx, playerCollider, playerVelocity, playerDirection, playerOnFloor);
 //-----FOG-----//
-//scene.fog = new THREE.FogExp2(0x100000, 0.001);
 scene.fog = new THREE.Fog(0x100000, 0, 35);
 //-----LIGHTS-----//
 //addLights(scene);
 //-----CONTROLS-----//
 //const orbitControls = addControls(camera, renderer.domElement);
-//const firstPersonControls = addFirstPersonControls(camera, renderer.domElement);
 //-----AXIS HELPER-----//
 const axesHelper = new THREE.AxesHelper(100);
 scene.add(axesHelper);
@@ -81,7 +100,7 @@ gridHelper.position.y = 0;
 //-----SKYBOX-----//
 new RGBELoader().load('./assets/belfast_sunset_puresky_2k.hdr', function(skyTexture) {
     skyTexture.mapping = THREE.EquirectangularReflectionMapping;
-    scene.background = skyTexture;
+    //scene.background = skyTexture;
     scene.environment = skyTexture;
     scene.environmentIntensity = 0.5;
 })
@@ -132,6 +151,8 @@ function animate() {
         //console.log(camera.position);
         updatePlayer(deltaTime, playerOnFloor, playerVelocity, playerCollider, worldOctree, GRAVITY, camera);
         updateSpheres(deltaTime, spheres, worldOctree, GRAVITY, playerCollider, playerVelocity, vector1, vector2, vector3);
+        updateEnemies(deltaTime, enemies, enemyBounds); // Update enemies within the octree
+        checkPlayerEnemyCollisions(playerCollider, enemies); // Check for collisions
         teleportPlayerIfOob(camera, playerCollider);
         
     }
@@ -141,3 +162,21 @@ function animate() {
     renderer.render(scene, camera);
 };
 animate();
+//-----END GAME-----//
+export function endGame() {
+    // Stop the animation loop
+    cancelAnimationFrame(animate);
+    // Display a game-over message
+    const gameOverMessage = document.createElement('div');
+    gameOverMessage.style.position = 'absolute';
+    gameOverMessage.style.top = '50%';
+    gameOverMessage.style.left = '50%';
+    gameOverMessage.style.transform = 'translate(-50%, -50%)';
+    gameOverMessage.style.color = 'white';
+    gameOverMessage.style.fontSize = '48px';
+    gameOverMessage.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+    gameOverMessage.style.padding = '20px';
+    gameOverMessage.style.borderRadius = '10px';
+    gameOverMessage.innerText = 'Game Over!';
+    document.body.appendChild(gameOverMessage);
+}
