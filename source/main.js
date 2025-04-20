@@ -9,7 +9,7 @@ import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { Capsule } from 'three/examples/jsm/math/Capsule.js';
 import { Octree } from 'three/examples/jsm/math/Octree.js';
-
+// Checking Changes
 //-----GLOBAL VARIABLES FOR IMPORT FUNCTIONS-----//
 const keyStates = {}; // Object to store key states
 let mouseTime = 0;
