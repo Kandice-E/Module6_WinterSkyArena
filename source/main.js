@@ -170,8 +170,58 @@ scene.add( helper );
 const points = addSFPoints();
 points.position.set(-23, -4, -23);
 scene.add(points);
-//-----UPDATE SCENE-----//
+//-----START GAME-----//
+// Create the start screen overlay
+const startScreen = document.createElement('div');
+startScreen.id = 'start-screen';
+startScreen.style.position = 'absolute';
+startScreen.style.top = '0';
+startScreen.style.left = '0';
+startScreen.style.width = '100%';
+startScreen.style.height = '100%';
+startScreen.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+startScreen.style.display = 'flex';
+startScreen.style.flexDirection = 'column';
+startScreen.style.justifyContent = 'center';
+startScreen.style.alignItems = 'center';
+startScreen.style.color = 'white';
+startScreen.style.fontSize = '48px';
+startScreen.style.zIndex = '10';
+// Add a title
+const title = document.createElement('div');
+title.innerText = 'Welcome to Winter Sky Arena!';
+title.style.marginBottom = '20px';
+startScreen.appendChild(title);
+// Add a start button
+const startButton = document.createElement('button');
+startButton.innerText = 'Start Game';
+startButton.style.padding = '10px 20px';
+startButton.style.fontSize = '24px';
+startButton.style.cursor = 'pointer';
+startButton.style.border = 'none';
+startButton.style.borderRadius = '5px';
+startButton.style.backgroundColor = '#28a745';
+startButton.style.color = 'white';
+startButton.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
+startButton.style.transition = 'background-color 0.3s';
+startScreen.appendChild(startButton);
+// Append the start screen to the document body
+document.body.appendChild(startScreen);
+// Add hover effects for the start button
+startButton.addEventListener('mouseover', () => {
+    startButton.style.backgroundColor = '#218838';
+});
+startButton.addEventListener('mouseout', () => {
+    startButton.style.backgroundColor = '#28a745';
+});
+// Start the game when the button is clicked
+startButton.addEventListener('click', () => {
+    startScreen.style.display = 'none'; // Hide the start screen
+    animate(); // Start the game loop
+});
+//-----GAME ANIMATION LOOP-----//
 function animate() {
+    console.log("Animation loop running...");
     requestAnimationFrame(animate);
     animatePoints(points);
     const deltaTime = Math.min( 0.05, clock.getDelta() ) / STEPS_PER_FRAME;
@@ -189,9 +239,9 @@ function animate() {
     stats.update();
     renderer.render(scene, camera);
 };
-animate();
+//animate();
 //-----END GAME-----//
-export function endGame() {
+/*export function endGame() {
     // Stop the animation loop
     cancelAnimationFrame(animate);
     // Display a game-over message
@@ -207,4 +257,98 @@ export function endGame() {
     gameOverMessage.style.borderRadius = '10px';
     gameOverMessage.innerText = 'Game Over!';
     document.body.appendChild(gameOverMessage);
+}*/
+export function endGame() {
+    // Stop the animation loop
+    cancelAnimationFrame(animate);
+    // Create a game-over overlay
+    const gameOverScreen = document.createElement('div');
+    gameOverScreen.id = 'game-over-screen';
+    gameOverScreen.style.position = 'absolute';
+    gameOverScreen.style.top = '0';
+    gameOverScreen.style.left = '0';
+    gameOverScreen.style.width = '100%';
+    gameOverScreen.style.height = '100%';
+    gameOverScreen.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+    gameOverScreen.style.display = 'flex';
+    gameOverScreen.style.flexDirection = 'column';
+    gameOverScreen.style.justifyContent = 'center';
+    gameOverScreen.style.alignItems = 'center';
+    gameOverScreen.style.color = 'white';
+    gameOverScreen.style.fontSize = '48px';
+    gameOverScreen.style.zIndex = '10';
+    // Add a "Game Over" message
+    const gameOverMessage = document.createElement('div');
+    gameOverMessage.innerText = 'Game Over!';
+    gameOverMessage.style.marginBottom = '20px';
+    gameOverScreen.appendChild(gameOverMessage);
+    // Display the final score
+    const finalScore = document.createElement('div');
+    finalScore.innerText = `Final Score: ${score.counter}`;
+    finalScore.style.marginBottom = '20px';
+    gameOverScreen.appendChild(finalScore);
+    // Add a "Restart Game" button
+    const restartButton = document.createElement('button');
+    restartButton.innerText = 'Restart Game';
+    restartButton.style.padding = '10px 20px';
+    restartButton.style.fontSize = '24px';
+    restartButton.style.cursor = 'pointer';
+    restartButton.style.border = 'none';
+    restartButton.style.borderRadius = '5px';
+    restartButton.style.backgroundColor = '#28a745';
+    restartButton.style.color = 'white';
+    restartButton.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
+    restartButton.style.transition = 'background-color 0.3s';
+    gameOverScreen.appendChild(restartButton);
+    // Append the game-over screen to the document body
+    document.body.appendChild(gameOverScreen);
+    // Add hover effects for the restart button
+    restartButton.addEventListener('mouseover', () => {
+        restartButton.style.backgroundColor = '#218838';
+    });
+    restartButton.addEventListener('mouseout', () => {
+        restartButton.style.backgroundColor = '#28a745';
+    });
+    // Restart the game when the button is clicked
+    restartButton.addEventListener('click', () => {
+        console.log("Restart button clicked.");
+        document.body.removeChild(gameOverScreen); // Remove the game-over screen
+        restartGame(); // Call the restart function
+    });
+}
+//-----RESTART GAME-----//
+function restartGame() {
+    // Reset the score
+    score.counter = 0;
+    updateScoreDisplay(score);
+    // Reset player position and velocity
+    playerCollider.start.set(0, 0.35, 0);
+    playerCollider.end.set(0, 1, 0);
+    playerVelocity.set(0, 0, 0);
+    // Reset spheres
+    spheres.forEach(sphere => {
+        sphere.mesh.visible = false;
+        sphere.collider.center.set(0, -100, 0); // Move spheres out of the scene
+        sphere.velocity.set(0, 0, 0);
+    });
+    // Reset enemies
+    enemies.forEach(enemy => {
+        const randomX = Math.random() * 30 - 10;
+        const randomY = Math.random() * 5 + 1;
+        const randomZ = Math.random() * 30 - 10;
+        enemy.collider.center.set(randomX, randomY, randomZ);
+        enemy.mesh.position.copy(enemy.collider.center);
+        enemy.velocity.set(0, Math.random() * 2 + 1, 0);
+        enemy.direction = 1;
+    });
+    // Reset targets
+    targets.forEach(target => {
+        const randomX = Math.random() * 30 - 10;
+        const randomY = Math.random() * 2;
+        const randomZ = Math.random() * 30 - 10;
+        target.collider.center.set(randomX, randomY, randomZ);
+        target.mesh.position.set(randomX, randomY, randomZ);
+    });
+    // Restart the game loop
+    animate();
 }
