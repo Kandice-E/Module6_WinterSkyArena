@@ -19,7 +19,12 @@ function eventListeners(mouseTime, keyStates, camera, spheres, sphereIdx, player
         }
         keyStates[ event.key ] = false;
     } );
-    document.addEventListener( 'mousedown', () => {
+    document.addEventListener( 'mousedown', (event) => {
+    // Prevent pointer lock if clicking on UI elements
+    if (event.target.tagName === 'BUTTON' || event.target.id === 'start-screen') {
+        console.log("Pointer lock prevented on UI element.");
+        return;
+    }
         document.body.requestPointerLock();
         mouseTime = performance.now();
     } );

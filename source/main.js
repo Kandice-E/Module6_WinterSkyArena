@@ -179,7 +179,8 @@ startScreen.style.top = '0';
 startScreen.style.left = '0';
 startScreen.style.width = '100%';
 startScreen.style.height = '100%';
-startScreen.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+//startScreen.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+startScreen.style.backgroundImage = 'url("./assets/WinterSkyArena1.png")';
 startScreen.style.display = 'flex';
 startScreen.style.flexDirection = 'column';
 startScreen.style.justifyContent = 'center';
@@ -194,6 +195,7 @@ title.style.marginBottom = '20px';
 startScreen.appendChild(title);
 // Add a start button
 const startButton = document.createElement('button');
+startButton.id = 'start-button';
 startButton.innerText = 'Start Game';
 startButton.style.padding = '10px 20px';
 startButton.style.fontSize = '24px';
@@ -216,13 +218,21 @@ startButton.addEventListener('mouseout', () => {
 });
 // Start the game when the button is clicked
 startButton.addEventListener('click', () => {
+    if (document.pointerLockElement) {
+        console.log("Pointer lock is active. Disabling it now...");
+        document.exitPointerLock();
+    } else {
+        console.log("Pointer lock is not active.");
+    }
     startScreen.style.display = 'none'; // Hide the start screen
     animate(); // Start the game loop
 });
 //-----GAME ANIMATION LOOP-----//
+let animationFrameId; // Global variable to store the animation frame ID
 function animate() {
     console.log("Animation loop running...");
-    requestAnimationFrame(animate);
+    animationFrameId = requestAnimationFrame(animate); // Store the frame ID
+    //requestAnimationFrame(animate);
     animatePoints(points);
     const deltaTime = Math.min( 0.05, clock.getDelta() ) / STEPS_PER_FRAME;
     // we look for collisions in substeps to mitigate the risk of
@@ -260,7 +270,8 @@ function animate() {
 }*/
 export function endGame() {
     // Stop the animation loop
-    cancelAnimationFrame(animate);
+    cancelAnimationFrame(animationFrameId); // Stop the animation loop
+    //cancelAnimationFrame(animate);
     // Create a game-over overlay
     const gameOverScreen = document.createElement('div');
     gameOverScreen.id = 'game-over-screen';
@@ -289,6 +300,7 @@ export function endGame() {
     gameOverScreen.appendChild(finalScore);
     // Add a "Restart Game" button
     const restartButton = document.createElement('button');
+    restartButton.id = 'restart-button';
     restartButton.innerText = 'Restart Game';
     restartButton.style.padding = '10px 20px';
     restartButton.style.fontSize = '24px';
@@ -312,12 +324,26 @@ export function endGame() {
     // Restart the game when the button is clicked
     restartButton.addEventListener('click', () => {
         console.log("Restart button clicked.");
-        document.body.removeChild(gameOverScreen); // Remove the game-over screen
+    
+        if (document.pointerLockElement) {
+            console.log("Pointer lock is active. Disabling it now...");
+            document.exitPointerLock();
+        } else {
+            console.log("Pointer lock is not active.");
+        }
+        // Restart the game
         restartGame(); // Call the restart function
     });
 }
 //-----RESTART GAME-----//
 function restartGame() {
+    console.log("Restarting game...");
+    // Remove the game over screen if it exists
+    const gameOverScreen = document.getElementById('game-over-screen');
+    if (gameOverScreen) {
+        document.body.removeChild(gameOverScreen);
+        console.log("Game over screen removed.");
+    }
     // Reset the score
     score.counter = 0;
     updateScoreDisplay(score);
@@ -349,6 +375,7 @@ function restartGame() {
         target.collider.center.set(randomX, randomY, randomZ);
         target.mesh.position.set(randomX, randomY, randomZ);
     });
+    startScreen.style.display = 'flex';
     // Restart the game loop
-    animate();
+    //animate();
 }
