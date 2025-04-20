@@ -1,11 +1,10 @@
 import * as THREE from 'three';
 
-    const vertices = [];
-    const numSprites = 3000;
-    const range = 50;
-    const boundingBox = new THREE.Box3(new THREE.Vector3(0,0,0), new THREE.Vector3(range, range / 2, range));
-
-//Returns a random sprite size between a specified range
+const vertices = [];
+const numSprites = 3000;
+const range = 50;
+const boundingBox = new THREE.Box3(new THREE.Vector3(0,0,0), new THREE.Vector3(range, range / 2, range));
+//Returns A Random Sprite Size Between A Specified Range
 function randomSize(minSize, maxSize) {
     let size = Math.random() * (maxSize);
     if (size <= minSize)
@@ -20,7 +19,7 @@ function randomSize(minSize, maxSize) {
     return size;
 };
 export function addSFPoints() {
-    //Randomly position sprites
+    //Randomly Position Sprites
      for ( let i = 0; i < numSprites; i++ ) {
         const x = Math.random() * range;
         const y = Math.random() * range / 2;
@@ -28,11 +27,11 @@ export function addSFPoints() {
         let point = new THREE.Vector3(x, y, z);
         vertices.push( point );
     };
-    //Create buffer geometry from vertices and create color attribute
+    //Create Buffer Geometry From Vertices And Create Color Attribute
     const bufferGeometry = new THREE.BufferGeometry().setFromPoints(vertices);
     //Load Snowflake Texture
     const texture = new THREE.TextureLoader().load("./assets/snowflake2.png");
-    //Create points material
+    //Create Points Material
     const pointMaterial = new THREE.PointsMaterial({
         size: randomSize(0.2, 0.6),
         vertexColors: false,
@@ -42,10 +41,8 @@ export function addSFPoints() {
         opacity: 0.8,
         alphaTest: 0.01
     });
-    //Create instance of point object using buffer geometry and point material
+    //Create Instance Of Point Object Using Buffer Geometry And Point Material
     const points = new THREE.Points(bufferGeometry, pointMaterial);
-
     return points;
 };
-
 export { boundingBox };

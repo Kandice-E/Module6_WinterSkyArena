@@ -2,7 +2,6 @@ import * as THREE from 'three';
 import { boundingBox } from './pointGeneration';
 
 const rotationSpeed = 0.0001;
-
 export function animatePoints(points) {
     const positions = points.geometry.getAttribute("position").array;
     for (let i = 0; i < positions.length; i+=3){

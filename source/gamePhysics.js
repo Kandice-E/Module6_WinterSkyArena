@@ -1,12 +1,11 @@
 import * as THREE from 'three';
 import { endGame, updateScoreDisplay } from './main.js';
 
-//const sceneCamera = camera;
 function updatePlayer(deltaTime, playerOnFloor, playerVelocity, playerCollider, worldOctree, GRAVITY, camera) {
     let damping = Math.exp( - 4 * deltaTime ) - 1;
     if ( !playerOnFloor.onFloor ) {
         playerVelocity.y -= GRAVITY * deltaTime;
-        // small air resistance
+        // Small Air Resistance
         damping *= 0.1;
     }
     playerVelocity.addScaledVector( playerVelocity, damping);
@@ -52,7 +51,7 @@ function playerSphereCollision(sphere, playerCollider, playerVelocity, vector1, 
     const sphere_center = sphere.collider.center;
     const r = playerCollider.radius + sphere.collider.radius;
     const r2 = r * r;
-    // approximation: player = 3 spheres
+    // Approximation: player = 3 spheres
     for ( const point of [ playerCollider.start, playerCollider.end, center ] ) {
         const d2 = point.distanceToSquared( sphere_center );
         if ( d2 < r2 ) {
@@ -89,15 +88,15 @@ function spheresCollisions(spheres, vector1, vector2, vector3) {
 }
 function updateEnemies(deltaTime, enemies, enemyBounds) {
     enemies.forEach(enemy => {
-        // Update enemy position based on velocity and direction
+        // Update Enemy Position Based On Velocity And Direction
         enemy.collider.center.y += enemy.velocity.y * enemy.direction * deltaTime;
-        // Reverse direction if the enemy reaches the upper or lower bounds
+        // Reverse Direction If The Enemy Reaches The Upper Or Lower Bounds
         if (enemy.collider.center.y > enemyBounds.maxY) {
             enemy.direction = -1; // Move down
         } else if (enemy.collider.center.y < enemyBounds.minY) {
             enemy.direction = 1; // Move up
         }
-        // Update enemy mesh position
+        // Update Enemy Mesh Position
         enemy.mesh.position.copy(enemy.collider.center);
     });
 }
@@ -121,7 +120,7 @@ function checkBallTargetCollisions(spheres, targets, score) {
                 console.log("Ball hit target!");
                 score.counter += 1;;
                 updateScoreDisplay(score); // Update the score display
-                // Move target to a new random position
+                // Move Target To A New Random Position
                 const randomX = Math.random() * 30 - 15; // Adjust based on your octree bounds
                 const randomY = Math.random() * 10 + 1;  // Adjust based on your octree bounds
                 const randomZ = Math.random() * 30 - 15; // Adjust based on your octree bounds
@@ -138,7 +137,7 @@ function teleportPlayerIfOob(camera, playerCollider) {
         playerCollider.radius = 0.35;
         camera.position.copy( playerCollider.end );
         camera.rotation.set( 0, 0, 0 );
-        endGame();
+        endGame(); // Call the game-over function
     }
 }
 function throwBall(spheres, sphereIdx, camera, playerCollider, playerVelocity, playerDirection, mouseTime) {
@@ -146,7 +145,7 @@ function throwBall(spheres, sphereIdx, camera, playerCollider, playerVelocity, p
     sphere.mesh.visible = true;
     camera.getWorldDirection( playerDirection );
     sphere.collider.center.copy( playerCollider.end ).addScaledVector( playerDirection, playerCollider.radius * 1.5 );
-    // throw the ball with more force if we hold the button longer, and if we move forward
+    // Throw The Ball With More Force If We Hold The Button Longer, And If We Move Forward
     const impulse = 50 + 100 * ( 1 - Math.exp( ( mouseTime - performance.now() ) * 0.001 ) );
     sphere.velocity.copy( playerDirection ).multiplyScalar( impulse );
     sphere.velocity.addScaledVector( playerVelocity, 2 );

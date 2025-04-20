@@ -20,7 +20,7 @@ function eventListeners(mouseTime, keyStates, camera, spheres, sphereIdx, player
         keyStates[ event.key ] = false;
     } );
     document.addEventListener( 'mousedown', (event) => {
-    // Prevent pointer lock if clicking on UI elements
+    // Prevent Pointer Lock If Clicking On UI Elements
     if (event.target.tagName === 'BUTTON' || event.target.id === 'start-screen') {
         console.log("Pointer lock prevented on UI element.");
         return;
@@ -52,7 +52,7 @@ function getSideVector(camera, playerDirection) {
     return playerDirection;
 }
 function controls(keyStates, playerVelocity, camera, playerDirection, deltaTime, playerOnFloor) {
-    // gives a bit of air control
+    // Gives A Bit Of Air Control
     const speedDelta = deltaTime * ( playerOnFloor.onFloor ? 30 : 8 );
     let forward = new THREE.Vector3();
     let side = new THREE.Vector3();
