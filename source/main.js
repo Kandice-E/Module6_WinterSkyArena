@@ -116,8 +116,6 @@ new RGBELoader().load('./assets/belfast_sunset_puresky_2k.hdr', function(skyText
 // Load Game Model
 const loader = new GLTFLoader();
 loader.load('./assets/collision-world.glb', ( gltf ) => {
-        //gltf.scene.scale.set(30, 30, 30);
-        //gltf.scene.position.y = 50;
         scene.add( gltf.scene );
         worldOctree.fromGraphNode( gltf.scene );
         gltf.scene.traverse( ( child ) => {
@@ -149,7 +147,8 @@ scoreDisplay.style.position = 'absolute';
 scoreDisplay.style.top = '10px';
 scoreDisplay.style.right = '10px';
 scoreDisplay.style.color = 'white';
-scoreDisplay.style.fontSize = '24px';
+scoreDisplay.style.fontSize = '36px';
+scoreDisplay.style.fontWeight = 'bold';
 scoreDisplay.innerText = `Score: ${score.counter}`;
 document.body.appendChild(scoreDisplay);
 // Update Score Display Function
@@ -164,6 +163,83 @@ export function updateScoreDisplay(score) {
     }
 }
 //-----END ADD SCORE DISPLAY-----//
+
+//-----ADD TIMER-----//
+const timerDisplay = document.createElement('div');
+timerDisplay.id = 'timer';
+timerDisplay.style.position = 'absolute';
+timerDisplay.style.top = '60px';
+timerDisplay.style.right = '10px';
+timerDisplay.style.color = 'white';
+timerDisplay.style.fontSize = '36px';
+timerDisplay.style.fontWeight = 'bold';
+timerDisplay.innerText = '03:00'; // Initial timer value
+document.body.appendChild(timerDisplay);
+let timerInterval; // Variable to store the interval ID
+let timeRemaining = 180; // 3 minutes in seconds
+function startTimer() {
+    timerInterval = setInterval(() => {
+        timeRemaining--;
+        const minutes = Math.floor(timeRemaining / 60);
+        const seconds = timeRemaining % 60;
+        // Update The Timer Display
+        timerDisplay.innerText = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        // End The Game If The Timer Reaches Zero
+        if (timeRemaining <= 0) {
+            clearInterval(timerInterval);
+            endGame();
+        }
+    }, 1000); // Update every second
+}
+//-----END ADD TIMER-----//
+
+//-----ADD MUSIC-----//
+// Create an audio element for background music
+const backgroundMusic = document.createElement('audio');
+backgroundMusic.src = './assets/Gemtracks-Smurf-Speed.mp3'; // Path to your audio file
+backgroundMusic.loop = true; // Loop the music
+backgroundMusic.volume = 0.15; // Set the volume (0.0 to 1.0)
+const muteButton = document.createElement('button');
+muteButton.innerText = 'Mute';
+muteButton.style.position = 'absolute';
+muteButton.style.top = `${stats.dom.offsetHeight + 10}px`; // Position it just below the FPS counter
+muteButton.style.left = '10px';
+muteButton.style.zIndex = '100';
+document.body.appendChild(muteButton);
+let isMuted = false;
+muteButton.addEventListener('click', () => {
+    isMuted = !isMuted;
+    backgroundMusic.muted = isMuted;
+    muteButton.innerText = isMuted ? 'Unmute' : 'Mute';
+});
+//-----END MUSIC-----//
+
+//-----ADD GAME GUIDE-----//
+const guideButton = document.createElement('button');
+guideButton.id = 'guide-button';
+guideButton.innerText = 'Game Guide';
+guideButton.style.position = 'absolute';
+guideButton.style.bottom = '10px';
+guideButton.style.right = '10px';
+guideButton.style.padding = '10px 20px';
+guideButton.style.fontSize = '16px';
+guideButton.style.cursor = 'pointer';
+guideButton.style.border = 'none';
+guideButton.style.borderRadius = '5px';
+guideButton.style.backgroundColor = '#007bff';
+guideButton.style.color = 'white';
+guideButton.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
+guideButton.style.transition = 'background-color 0.3s';
+guideButton.addEventListener('mouseover', () => {
+    guideButton.style.backgroundColor = '#0056b3';
+});
+guideButton.addEventListener('mouseout', () => {
+    guideButton.style.backgroundColor = '#007bff';
+});
+guideButton.addEventListener('click', () => {
+    window.open('./assets/Game-User-Guide.pdf', '_blank'); // Opens the PDF in a new tab
+});
+//-----END GAME GUIDE-----//
 
 //-----START GAME-----//
 // Initialize Event Listeners For Controls
@@ -206,6 +282,7 @@ startButton.style.color = 'white';
 startButton.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
 startButton.style.transition = 'background-color 0.3s';
 startScreen.appendChild(startButton);
+startScreen.appendChild(guideButton); // Add the guide button to the start screen
 // Append The Start Screen To The Document Body
 document.body.appendChild(startScreen);
 // Add Hover Effects For The Start Button
@@ -224,6 +301,8 @@ startButton.addEventListener('click', () => {
         console.log("Pointer lock is not active.");
     }
     startScreen.style.display = 'none'; // Hide the start screen
+    backgroundMusic.play(); // Start the background music
+    startTimer(); // Start the timer
     animate(); // Start the game loop
 });
 //-----END START GAME-----//
@@ -256,6 +335,8 @@ function animate() {
 export function endGame() {
     // Stop The Animation Loop
     cancelAnimationFrame(animationFrameId); // Stop the animation loop
+    backgroundMusic.pause(); // Stop the background music
+    backgroundMusic.currentTime = 0; // Reset the music to the beginning
     // Create A Game-Over Overlay
     const gameOverScreen = document.createElement('div');
     gameOverScreen.id = 'game-over-screen';
@@ -333,6 +414,10 @@ function restartGame() {
     // Reset The Score
     score.counter = 0;
     updateScoreDisplay(score);
+    // Reset the timer
+    clearInterval(timerInterval); // Stop the previous timer
+    timeRemaining = 180; // Reset to 3 minutes
+    timerDisplay.innerText = '03:00'; // Reset the timer display
     // Reset Player Position And Velocity
     playerCollider.start.set(0, 0.35, 0);
     playerCollider.end.set(0, 1, 0);
