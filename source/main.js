@@ -312,7 +312,6 @@ let animationFrameId; // Global variable to store the animation frame ID
 function animate() {
     console.log("Animation loop running...");
     animationFrameId = requestAnimationFrame(animate); // Store the frame ID
-    //requestAnimationFrame(animate);
     animatePoints(points);
     const deltaTime = Math.min( 0.05, clock.getDelta() ) / STEPS_PER_FRAME;
     // we look for collisions in substeps to mitigate the risk of

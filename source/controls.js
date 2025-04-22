@@ -56,7 +56,6 @@ function controls(keyStates, playerVelocity, camera, playerDirection, deltaTime,
     const speedDelta = deltaTime * ( playerOnFloor.onFloor ? 30 : 8 );
     let forward = new THREE.Vector3();
     let side = new THREE.Vector3();
-    let up = new THREE.Vector3();
     if ( keyStates[ 'w' ] ) {
         forward.copy(getForwardVector(camera, playerDirection));
         playerVelocity.add( forward.clone().multiplyScalar( speedDelta ) );
