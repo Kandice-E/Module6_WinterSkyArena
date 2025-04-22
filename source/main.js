@@ -270,7 +270,7 @@ title.style.marginBottom = '20px';
 startScreen.appendChild(title);
 // Add A Paragraph With Game Key Controls
 const controlsInfo = document.createElement('div');
-controlsInfo.innerText = 'Controls: \nW - Move Forward\nA - Move Left\nS - Move Backward\nD - Move Right\nSpace - Jump\nUse Mouse to Look Around\nLeft Click to Throw Ball from Center of Screen';
+controlsInfo.innerText = 'Controls: \nW - Move Forward\nA - Move Left\nS - Move Backward\nD - Move Right\nSpace - Jump\nUse Mouse to Look Around\nLeft Click to Throw Ball from Center of Screen\nHold Left Click to Throw Ball Further';
 controlsInfo.style.marginBottom = '20px';
 controlsInfo.style.textAlign = 'center';
 controlsInfo.style.textAlign = 'bottom';
