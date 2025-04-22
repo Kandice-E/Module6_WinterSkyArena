@@ -321,7 +321,7 @@ function animate() {
         updatePlayer(deltaTime, playerOnFloor, playerVelocity, playerCollider, worldOctree, GRAVITY, camera);
         updateSpheres(deltaTime, spheres, worldOctree, GRAVITY, playerCollider, playerVelocity, vector1, vector2, vector3);
         updateEnemies(deltaTime, enemies, enemyBounds); // Update enemies within the octree
-        checkPlayerEnemyCollisions(playerCollider, enemies); // Check for collisions
+        checkPlayerEnemyCollisions(playerCollider, enemies, camera); // Check for collisions
         checkBallTargetCollisions(spheres, targets, score); // Check for collisions with targets
         teleportPlayerIfOob(camera, playerCollider);
     }
