@@ -56,10 +56,14 @@ scene.fog = new THREE.Fog(0x100000, 0, 35);
 
 //-----ADD GAME OBJECTS-----//
 // Add Spheres
+const loader2 = new THREE.TextureLoader();
+const sphereTexture = loader2.load('./assets/snowball.jpg'); // Load the snowflake texture
 const sphereGeometry = new THREE.IcosahedronGeometry( SPHERE_RADIUS, 5 );
-const sphereMaterial = new THREE.MeshBasicMaterial( { color: 0xdede8d } );
+const sphereMaterial = new THREE.MeshBasicMaterial( { color: 0xffffff } );
 for ( let i = 0; i < NUM_SPHERES; i ++ ) {
     const sphere = new THREE.Mesh( sphereGeometry, sphereMaterial );
+    sphere.material.map = sphereTexture; // Apply the snowball texture to the sphere
+    sphere.material.needsUpdate = true; // Ensure the material updates with the new texture
     sphere.castShadow = true;
     sphere.receiveShadow = true;
     scene.add( sphere );
@@ -267,15 +271,16 @@ startScreen.style.zIndex = '10';
 const title = document.createElement('div');
 title.innerText = 'Welcome to Winter Sky Arena!';
 title.style.marginBottom = '20px';
+title.style.fontSize = '64px';
+title.style.textAlign = 'center';
 startScreen.appendChild(title);
-// Add A Paragraph With Game Key Controls
-const controlsInfo = document.createElement('div');
-controlsInfo.innerText = 'Controls: \nW - Move Forward\nA - Move Left\nS - Move Backward\nD - Move Right\nSpace - Jump\nUse Mouse to Look Around\nLeft Click to Throw Ball from Center of Screen\nHold Left Click to Throw Ball Further';
-controlsInfo.style.marginBottom = '20px';
-controlsInfo.style.textAlign = 'center';
-controlsInfo.style.textAlign = 'bottom';
-controlsInfo.style.fontSize = '18px';
-startScreen.appendChild(controlsInfo);
+// Add a New Paragraph Between Title and Start Button
+const description = document.createElement('div');
+description.innerText = 'Prepare yourself for an exciting adventure!\n\nYour mission is to throw snowballs at the GREEN targets while avoiding the RED enemies.\n\nUse your skills to score points and survive!';
+description.style.marginBottom = '20px';
+description.style.textAlign = 'center';
+description.style.fontSize = '32px';
+startScreen.appendChild(description);
 // Add A Start Button
 const startButton = document.createElement('button');
 startButton.id = 'start-button';
@@ -291,6 +296,13 @@ startButton.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
 startButton.style.transition = 'background-color 0.3s';
 startScreen.appendChild(startButton);
 startScreen.appendChild(guideButton); // Add the guide button to the start screen
+// Move Game Key Controls Below Start Button
+const controlsInfo = document.createElement('div');
+controlsInfo.innerText = 'Controls: \nW - Move Forward\nA - Move Left\nS - Move Backward\nD - Move Right\nSpace - Jump\nUse Mouse to Look Around\nLeft Click to Throw Ball from Center of Screen\nHold Left Click to Throw Ball Further';
+controlsInfo.style.marginTop = '20px'; // Add spacing above the controls
+controlsInfo.style.textAlign = 'center';
+controlsInfo.style.fontSize = '18px';
+startScreen.appendChild(controlsInfo);
 // Append The Start Screen To The Document Body
 document.body.appendChild(startScreen);
 // Add Hover Effects For The Start Button
