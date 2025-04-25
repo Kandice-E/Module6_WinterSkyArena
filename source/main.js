@@ -268,6 +268,14 @@ const title = document.createElement('div');
 title.innerText = 'Welcome to Winter Sky Arena!';
 title.style.marginBottom = '20px';
 startScreen.appendChild(title);
+// Add A Paragraph With Game Key Controls
+const controlsInfo = document.createElement('div');
+controlsInfo.innerText = 'Controls: \nW - Move Forward\nA - Move Left\nS - Move Backward\nD - Move Right\nSpace - Jump\nUse Mouse to Look Around\nLeft Click to Throw Ball from Center of Screen\nHold Left Click to Throw Ball Further';
+controlsInfo.style.marginBottom = '20px';
+controlsInfo.style.textAlign = 'center';
+controlsInfo.style.textAlign = 'bottom';
+controlsInfo.style.fontSize = '18px';
+startScreen.appendChild(controlsInfo);
 // Add A Start Button
 const startButton = document.createElement('button');
 startButton.id = 'start-button';
@@ -321,7 +329,7 @@ function animate() {
         updatePlayer(deltaTime, playerOnFloor, playerVelocity, playerCollider, worldOctree, GRAVITY, camera);
         updateSpheres(deltaTime, spheres, worldOctree, GRAVITY, playerCollider, playerVelocity, vector1, vector2, vector3);
         updateEnemies(deltaTime, enemies, enemyBounds); // Update enemies within the octree
-        checkPlayerEnemyCollisions(playerCollider, enemies); // Check for collisions
+        checkPlayerEnemyCollisions(playerCollider, enemies, camera); // Check for collisions
         checkBallTargetCollisions(spheres, targets, score); // Check for collisions with targets
         teleportPlayerIfOob(camera, playerCollider);
     }

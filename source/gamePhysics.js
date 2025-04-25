@@ -100,12 +100,17 @@ function updateEnemies(deltaTime, enemies, enemyBounds) {
         enemy.mesh.position.copy(enemy.collider.center);
     });
 }
-function checkPlayerEnemyCollisions(playerCollider, enemies) {
+function checkPlayerEnemyCollisions(playerCollider, enemies, camera) {
     for (const enemy of enemies) {
         const distance = playerCollider.start.distanceTo(enemy.collider.center);
         const combinedRadius = playerCollider.radius + enemy.collider.radius;
         if (distance < combinedRadius) {
             console.log("Game Over! Player collided with an enemy.");
+            playerCollider.start.set( 0, 0.35, 0 );
+            playerCollider.end.set( 0, 1, 0 );
+            playerCollider.radius = 0.35;
+            camera.position.copy( playerCollider.end );
+            camera.rotation.set( 0, 0, 0 );
             endGame(); // Call the game-over function
             break;
         }
