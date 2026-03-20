@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { controls, eventListeners } from './controls.js'; 
-import { updatePlayer, updateSpheres, teleportPlayerIfOob, updateEnemies, checkPlayerEnemyCollisions, checkBallTargetCollisions } from './gamePhysics.js';
+import { updatePlayer, updateSpheres, teleportPlayerIfOob, updateEnemies, checkBallTargetCollisions, checkForEnemyCollisions } from './gamePhysics.js';
 import { createScene, createCamera, createRenderer } from './sceneSetup.js';
 import Stats from 'three/examples/jsm/libs/stats.module.js';
 import { addSFPoints } from './pointGeneration.js';
@@ -9,6 +9,7 @@ import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { Capsule } from 'three/examples/jsm/math/Capsule.js';
 import { Octree } from 'three/examples/jsm/math/Octree.js';
+import { NPC} from './npc.js';
 // Checking Changes
 //-----GLOBAL VARIABLES FOR IMPORT FUNCTIONS-----//
 const keyStates = {}; // Object to store key states
@@ -110,6 +111,18 @@ for (let i = 0; i < NUM_TARGETS; i++) {
         collider: new THREE.Sphere(new THREE.Vector3(randomX, randomY, randomZ), TARGET_RADIUS),
     });
 }
+// Add NPC
+/*const npcGeometry = new THREE.BoxGeometry(2, 2, 2);
+const npcMaterial = new THREE.MeshBasicMaterial({ color: 0x0000ff});
+const npc = new NPC({
+    scene: scene,
+    startPosition: new THREE.Vector3(0, 0, 0),
+    geometry: npcGeometry,
+    material: npcMaterial,
+    colliderRadius: 0.35,
+    behaviorGenome: new THREE.Vector3(2, 0, 0)
+});*/
+
 // Add Lights Using Skybox
 new RGBELoader().load('./assets/belfast_sunset_puresky_2k.hdr', function(skyTexture) {
     skyTexture.mapping = THREE.EquirectangularReflectionMapping;
@@ -341,7 +354,12 @@ function animate() {
         updatePlayer(deltaTime, playerOnFloor, playerVelocity, playerCollider, worldOctree, GRAVITY, camera);
         updateSpheres(deltaTime, spheres, worldOctree, GRAVITY, playerCollider, playerVelocity, vector1, vector2, vector3);
         updateEnemies(deltaTime, enemies, enemyBounds); // Update enemies within the octree
-        checkPlayerEnemyCollisions(playerCollider, enemies, camera); // Check for collisions
+        /*npc.update(deltaTime); // Update NPC behavior and position
+        if (npc.checkCollisionWith(playerCollider)) {
+            console.log("Player hit NPC!");
+            endGame(); // End game if player collides with NPC (temporary game-over condition for testing)
+        }*/
+        checkForEnemyCollisions(playerCollider, enemies, camera); // Check for collisions with enemies using general collision function
         checkBallTargetCollisions(spheres, targets, score); // Check for collisions with targets
         teleportPlayerIfOob(camera, playerCollider);
     }

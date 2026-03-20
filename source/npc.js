@@ -3,60 +3,126 @@ import * as THREE from 'three';
 export class NPC {
     constructor({
         scene,
-        startPosition = new THREE.Vector3(),
-        geometry = null,
-        material = null,
-        colliderRadius = 0.35,
-        behaviorGenome = new THREE.Vector3(0, 0, 0)})
-        {
-            this.scene = scene;
-            this.behaviorGenome = behaviorGenome;
-            this.velocity = new THREE.Vector3();
-            //Create a visible mesh for the NPC
-            this.mesh = new THREE.Mesh(geometry, material);
-            this.mesh.castShadow = true;
-            this.mesh.receiveShadow = true;
-            this.mesh.position.copy(startPosition);
-            //this.scene.add(this.mesh);
-            //Create a collider for NPC collision detection
-            this.collider = new THREE.Sphere(startPosition.clone(), colliderRadius);
-            //Store initial position for reference
-            this.position = startPosition.clone();
+        startPos = new THREE.Vector3(),
+        behavior = {
+            jumpFrequency: 0.5, // seconds between jumps
+            ballThrowPower: 10, // velocity multiplier for thrown balls
+            ballThrowFrequency: 2.0, // seconds between throws
+            targetSelectionRadius: 15, // max distance to select targets
+            enemyAvoidanceDistance: 5, // distance to avoid enemies
+            movementSpeedMultiplier: 1.0 // multiplier for base speed
+        },
+        modelOptions = {}
+    }) {
+        this.scene = scene;
+        this.behavior = behavior;
+
+        // Capsule collider like player
+        const height = 1.0;
+        const radius = 0.35;
+        this.collider = new Capsule(
+            new THREE.Vector3(startPos.x, startPos.y, startPos.z),
+            new THREE.Vector3(startPos.x, startPos.y + height, startPos.z),
+            radius
+        );
+
+        // Mesh for visibility
+        this.mesh = new THREE.Mesh(
+            modelOptions.geometry || new THREE.BoxGeometry(0.6, height, 0.6),
+            modelOptions.material || new THREE.MeshStandardMaterial({ color: 0x3366ff })
+        );
+        this.mesh.castShadow = true;
+        this.mesh.receiveShadow = true;
+        this.mesh.position.copy(startPos);
+        this.scene.add(this.mesh);
+
+        this.velocity = new THREE.Vector3();
+        this.onFloor = false;
+        this.targetIndex = -1;
+        this.lastJump = 0;
+        this.lastThrow = 0;
+        this.baseSpeed = 2.5; // base movement speed
+    }
+
+    getCenter(out = new THREE.Vector3()) {
+        return out.copy(this.collider.start).add(this.collider.end).multiplyScalar(0.5);
+    }
+
+    update(delta, worldOctree, targets, enemies, spawnBallFn, time, GRAVITY = 30) {
+        const center = this.getCenter();
+
+        // Select target within radius
+        if (this.targetIndex < 0 || !targets[this.targetIndex] ||
+            center.distanceTo(targets[this.targetIndex].collider.center) > this.behavior.targetSelectionRadius) {
+            this.targetIndex = this.findNearestTarget(center, targets, this.behavior.targetSelectionRadius);
         }
-        //Update NPC behavior based on its genome (simple example: move in a direction defined by the genome)
-        updateBehavior(deltaTime) {
-            //Apply behavior genome to determine velocity
-            this.velocity.x = Math.cos(this.behaviorGenome.z) * this.behaviorGenome.x;
-            this.velocity.y = this.behaviorGenome.y;
-            this.velocity.z = Math.sin(this.behaviorGenome.z) * this.behaviorGenome.x;
+
+        // Calculate movement direction
+        let moveDir = new THREE.Vector3();
+        if (this.targetIndex >= 0) {
+            const target = targets[this.targetIndex];
+            moveDir = target.collider.center.clone().sub(center).normalize();
         }
-        //Update NPC position based on velocity and check for collisions (called in physics loop)
-        update(deltaTime) {
-            this.updateBehavior(deltaTime);
-            //Update position based on velocity
-            this.position.addScaledVector(this.velocity, deltaTime);
-            //Sync collider and mesh position with the updated NPC position
-            this.collider.center.copy(this.position);
-            this.mesh.position.copy(this.position);
+
+        // Avoid enemies
+        if (enemies && enemies.length > 0) {
+            for (const enemy of enemies) {
+                const dist = center.distanceTo(enemy.collider.center);
+                if (dist < this.behavior.enemyAvoidanceDistance) {
+                    const avoidDir = center.clone().sub(enemy.collider.center).normalize();
+                    moveDir.add(avoidDir.multiplyScalar(0.5)); // blend avoidance
+                }
+            }
+            moveDir.normalize();
         }
-        //Check collision with another collider (e.g., player or other NPCs)
-        checkCollisionWith(otherCollider) {
-            const distance = this.collider.center.distanceTo(otherCollider.center);
-            const minDistance = this.collider.radius + otherCollider.radius;
-            return distance < minDistance;
+
+        // Apply movement speed
+        const speed = this.baseSpeed * this.behavior.movementSpeedMultiplier;
+        this.velocity.x = moveDir.x * speed;
+        this.velocity.z = moveDir.z * speed;
+
+        // Jumping
+        if (this.onFloor && time - this.lastJump > this.behavior.jumpFrequency) {
+            this.velocity.y = 10; // jump impulse
+            this.lastJump = time;
+            this.onFloor = false;
         }
-        //Get the center position of the NPC (useful for various calculations)
-        getCenter() {
-            return this.position.clone();
+
+        // Gravity
+        this.velocity.y -= GRAVITY * delta;
+
+        // Update collider position
+        this.collider.start.addScaledVector(this.velocity, delta);
+        this.collider.end.addScaledVector(this.velocity, delta);
+
+        // Collision with world (reuse player collision logic)
+        // Assuming playerCollisions function is available or imported
+        // For now, placeholder: this.onFloor = capsuleIntersect(this.collider, worldOctree) or similar
+
+        // Sync mesh
+        this.mesh.position.copy(this.getCenter());
+
+        // Throwing balls
+        if (time - this.lastThrow > this.behavior.ballThrowFrequency && this.targetIndex >= 0) {
+            this.lastThrow = time;
+            const spawnPos = center.clone().add(new THREE.Vector3(0, 0.9, 0));
+            const target = targets[this.targetIndex];
+            const dir = target.collider.center.clone().sub(spawnPos).normalize();
+            const velocity = dir.multiplyScalar(this.behavior.ballThrowPower);
+            if (spawnBallFn) spawnBallFn(spawnPos, velocity);
         }
-        //Set the behavior genome for the NPC (can be used to change behavior dynamically)
-        setBehaviorGenome(x, y, z) {
-            this.behaviorGenome.set(x, y, z);
+    }
+
+    findNearestTarget(center, targets, maxDist) {
+        let nearest = -1;
+        let minDist = maxDist;
+        for (let i = 0; i < targets.length; i++) {
+            const dist = center.distanceTo(targets[i].collider.center);
+            if (dist < minDist) {
+                minDist = dist;
+                nearest = i;
+            }
         }
-        //Remove NPC from the scene and clean up resources
-        remove() {
-            this.scene.remove(this.mesh);
-            this.mesh.geometry.dispose();
-            this.mesh.material.dispose();
-        }
+        return nearest;
+    }
 }
