@@ -6,6 +6,7 @@ import Stats from 'three/examples/jsm/libs/stats.module.js';
 import { addSFPoints } from './pointGeneration.js';
 import { animatePoints } from './spriteAnimation.js';
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
+import { HDRLoader } from 'three/examples/jsm/Addons.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { Capsule } from 'three/examples/jsm/math/Capsule.js';
 import { Octree } from 'three/examples/jsm/math/Octree.js';
@@ -23,14 +24,14 @@ const NUM_SPHERES = 10;
 const SPHERE_RADIUS = 0.2; // Radius of sphere collider
 const spheres = [];
 let sphereIdx = 0;
-const NUM_ENEMIES = 50;
+const NUM_ENEMIES = 25;
 const ENEMY_RADIUS = 0.5; // Radius of enemy collider
 const enemies = [];
 const enemyBounds = { minY: -2, maxY: 10};
 const NUM_TARGETS = 10;
 const TARGET_RADIUS = 0.5;
 const targets = [];
-let score = {counter: 0}; // Initialize score counter
+let score = {counter: 0, npcCounter: 0}; // Initialize score counters
 const playerCollider = new Capsule( new THREE.Vector3( 0, 0.35, 0 ), new THREE.Vector3( 0, 1, 0 ), 0.35 );
 const worldOctree = new Octree(); // Create a new Octree for the world
 const vector1 = new THREE.Vector3(); // Vector for collision detection
@@ -45,6 +46,13 @@ const camera = createCamera();
 const renderer = createRenderer();
 const stats = Stats();
 document.body.appendChild(stats.dom);
+// Ensure canvas fills the window to prevent WebGL viewport warnings
+renderer.domElement.style.width = '100%';
+renderer.domElement.style.height = '100%';
+renderer.domElement.style.display = 'block';
+document.body.style.margin = '0';
+document.body.style.padding = '0';
+document.body.style.overflow = 'hidden';
 // Handle Window Resizing
 function onWindowResize() {
     camera.aspect = window.innerWidth / window.innerHeight;
@@ -52,6 +60,8 @@ function onWindowResize() {
     renderer.setSize(window.innerWidth, window.innerHeight);
 };
 window.addEventListener('resize', onWindowResize, false);
+// Initial resize to match current window size
+onWindowResize();
 scene.fog = new THREE.Fog(0x100000, 0, 35);
 //-----END SETUP-----//
 
@@ -74,6 +84,15 @@ for ( let i = 0; i < NUM_SPHERES; i ++ ) {
         velocity: new THREE.Vector3()
     } );
 }
+// Add NPC ball spawn function (called by NPC behavior when throwing a ball)
+function npcSpawnBall(origin, velocity) {
+    const s = spheres[sphereIdx];
+    s.mesh.visible = true;
+    s.collider.center.copy(origin);
+    s.mesh.position.copy(origin);
+    s.velocity.copy(velocity);
+    sphereIdx = (sphereIdx + 1) % spheres.length;
+}
 // Add Enemies
 const enemyGeometry = new THREE.SphereGeometry(ENEMY_RADIUS, 16, 16);
 const enemyMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 }); // Red color for enemies
@@ -82,10 +101,15 @@ for (let i = 0; i < NUM_ENEMIES; i++) {
     enemy.castShadow = true;
     enemy.receiveShadow = true;
     scene.add(enemy);
-    // Place Enemies Randomly Within The Octree Bounds
-    const randomX = Math.random() * 30 - 10; // Adjust based on your octree bounds
-    const randomY = Math.random() * 5 + 1;   // Adjust based on your octree bounds
-    const randomZ = Math.random() * 30 - 10; // Adjust based on your octree bounds
+    // Place Enemies Randomly Within The Octree Bounds, avoiding player spawn area
+    let randomX, randomY, randomZ, dist;
+    do {
+        randomX = Math.random() * 30 - 10; // Adjust based on your octree bounds
+        randomY = Math.random() * 5 + 1;   // Adjust based on your octree bounds
+        randomZ = Math.random() * 30 - 10; // Adjust based on your octree bounds
+        // Calculate distance from player start position (0, 0.35, 0)
+        dist = Math.sqrt(randomX * randomX + (randomY - 0.35) * (randomY - 0.35) + randomZ * randomZ);
+    } while (dist < 4); // Minimum distance of 4 units from player
     enemies.push({
         mesh: enemy,
         collider: new THREE.Sphere(new THREE.Vector3(randomX, randomY, randomZ), ENEMY_RADIUS),
@@ -122,9 +146,19 @@ const npc = new NPC({
     colliderRadius: 0.35,
     behaviorGenome: new THREE.Vector3(2, 0, 0)
 });*/
+// Add NPC With More Complex Behavior
+const npcBehavior = {
+    jumpFrequency: 1.0, // jumps every 1 second
+    ballThrowPower: 12, // stronger throws
+    ballThrowFrequency: 1.5, // throws every 1.5 seconds
+    targetSelectionRadius: 20, // selects targets up to 20 units away
+    enemyAvoidanceDistance: 7, // avoids enemies within 7 units
+    movementSpeedMultiplier: 1.2 // 20% faster movement
+};
+const npc = new NPC({ scene, startPos: new THREE.Vector3(5, 0, 5), behavior: npcBehavior });
 
 // Add Lights Using Skybox
-new RGBELoader().load('./assets/belfast_sunset_puresky_2k.hdr', function(skyTexture) {
+new HDRLoader().load('./assets/belfast_sunset_puresky_2k.hdr', function(skyTexture) {
     skyTexture.mapping = THREE.EquirectangularReflectionMapping;
     //scene.background = skyTexture;
     scene.environment = skyTexture;
@@ -166,15 +200,16 @@ scoreDisplay.style.right = '10px';
 scoreDisplay.style.color = 'white';
 scoreDisplay.style.fontSize = '36px';
 scoreDisplay.style.fontWeight = 'bold';
-scoreDisplay.innerText = `Score: ${score.counter}`;
+scoreDisplay.innerText = `Player Score: ${score.counter} NPC Score: ${score.npcCounter}`; // Initial score display
 document.body.appendChild(scoreDisplay);
 // Update Score Display Function
 export function updateScoreDisplay(score) {
     console.log("Score updated:", score.counter); // Debugging line
+    console.log("NPC Score updated:", score.npcCounter); // Debugging line
     const scoreElement = document.getElementById('score');
     if (scoreElement) {
         console.log("Score element found!"); // Debugging line
-        scoreElement.innerText = `Score: ${score.counter}`;
+        scoreElement.innerText = `Score: ${score.counter}/n NPC Score: ${score.npcCounter}`;
     } else {
         console.error("Score element not found!");
     }
@@ -359,9 +394,12 @@ function animate() {
             console.log("Player hit NPC!");
             endGame(); // End game if player collides with NPC (temporary game-over condition for testing)
         }*/
-        checkForEnemyCollisions(playerCollider, enemies, camera); // Check for collisions with enemies using general collision function
-        checkBallTargetCollisions(spheres, targets, score); // Check for collisions with targets
-        teleportPlayerIfOob(camera, playerCollider);
+       npc.update(deltaTime, worldOctree, targets, enemies, npcSpawnBall, clock.getElapsedTime());
+        //checkForEnemyCollisions(playerCollider, enemies, camera); // Check for collisions with enemies using general collision function
+        checkForEnemyCollisions(npc.collider, playerCollider, enemies, camera); // Check for collisions between NPC and enemies
+        //checkBallTargetCollisions(spheres, targets, score); // Check for player collisions with targets
+        checkBallTargetCollisions(spheres, targets, score, npc); // Check for NPC collisions with targets
+        teleportPlayerIfOob(camera, playerCollider, npc);
     }
     stats.update();
     renderer.render(scene, camera);
@@ -400,7 +438,7 @@ export function endGame() {
     gameOverScreen.appendChild(gameOverMessage);
     // Display The Final Score
     const finalScore = document.createElement('div');
-    finalScore.innerText = `Final Score: ${score.counter}`;
+    finalScore.innerText = `Final Score: ${score.counter} | NPC Score: ${score.npcCounter}`;
     finalScore.style.marginBottom = '20px';
     gameOverScreen.appendChild(finalScore);
     // Add A "Restart Game" Button
@@ -450,6 +488,7 @@ function restartGame() {
     }
     // Reset The Score
     score.counter = 0;
+    score.npcCounter = 0;
     updateScoreDisplay(score);
     // Reset the timer
     clearInterval(timerInterval); // Stop the previous timer
@@ -459,6 +498,11 @@ function restartGame() {
     playerCollider.start.set(0, 0.35, 0);
     playerCollider.end.set(0, 1, 0);
     playerVelocity.set(0, 0, 0);
+    // Reset NPC Position, Velocity, and Behavior State
+    npc.collider.start.set(5, 0.35, 5);
+    npc.collider.end.set(5, 1, 5);
+    npc.velocity.set(0, 0, 0);
+    npc.behaviorState = {}; // Reset any custom behavior state variables
     // Reset Spheres
     spheres.forEach(sphere => {
         sphere.mesh.visible = false;

@@ -119,30 +119,46 @@ function checkPlayerEnemyCollisions(playerCollider, enemies, camera) {
     }
 }*/
 // General Collision Detection Function For Player-Enemy Collisions and NPC Collisions
-function checkForEnemyCollisions(collider, enemies, camera) {
+function checkForEnemyCollisions(npcCollider, playerCollider, enemies, camera) {
     for (const enemy of enemies) {
-        const distance = collider.start.distanceTo(enemy.collider.center);
-        const combinedRadius = collider.radius + enemy.collider.radius;
-        if (distance < combinedRadius) {
-            console.log("Game Over! Player collided with an enemy.");
-            collider.start.set( 0, 0.35, 0 );
-            collider.end.set( 0, 1, 0 );
-            collider.radius = 0.35;
-            camera.position.copy( collider.end );
+        const distance1 = npcCollider.start.distanceTo(enemy.collider.center);
+        const distance2 = playerCollider.start.distanceTo(enemy.collider.center);
+        const combinedRadius1 = npcCollider.radius + enemy.collider.radius;
+        const combinedRadius2 = playerCollider.radius + enemy.collider.radius;
+        if (distance1 < combinedRadius1) {
+            console.log("NPC collided with an enemy.");
+            npcCollider.start.set( 0, 0.35, 0 );
+            npcCollider.end.set( 0, 1, 0 );
+            npcCollider.radius = 0.35;
+            endGame(); // Call the game-over function
+            break;
+        }
+        if (distance2 < combinedRadius2) {
+            console.log("Player collided with an enemy.");
+            playerCollider.start.set( 0, 0.35, 0 );
+            playerCollider.end.set( 0, 1, 0 );
+            playerCollider.radius = 0.35;
+            camera.position.copy( playerCollider.end );
             camera.rotation.set( 0, 0, 0 );
             endGame(); // Call the game-over function
             break;
         }
     }
 }
-function checkBallTargetCollisions(spheres, targets, score) {
+function checkBallTargetCollisions(spheres, targets, score, npc) {
     spheres.forEach (sphere => {
         for (const target of targets) {
             const distance = sphere.collider.center.distanceTo(target.collider.center);
             const combinedRadius = sphere.collider.radius + target.collider.radius;
             if (distance < combinedRadius) {
-                console.log("Ball hit target!");
-                score.counter += 1;;
+                if (target === targets[npc.targetIndex]) {
+                    console.log("NPC hit a target!");
+                    score.npcCounter += 1;
+                }
+                else {
+                    console.log("Player hit a target!");
+                    score.counter += 1;
+                }
                 updateScoreDisplay(score); // Update the score display
                 // Move Target To A New Random Position
                 const randomX = Math.random() * 30 - 15; // Adjust based on your octree bounds
@@ -154,14 +170,22 @@ function checkBallTargetCollisions(spheres, targets, score) {
         }
     });
 }
-function teleportPlayerIfOob(camera, playerCollider) {
+function teleportPlayerIfOob(camera, playerCollider, npc) {
+    if (npc.mesh.position.y <= -25) {
+        console.log("NPC fell out of bounds. Resetting position.");
+        playerCollider.start.set( 0, 0.35, 0 );
+        playerCollider.end.set( 0, 1, 0 );
+        playerCollider.radius = 0.35;
+        //endGame(); // Call the game-over function
+    }
     if ( camera.position.y <= -25 ) {
+        console.log("Player fell out of bounds. Resetting position.");
         playerCollider.start.set( 0, 0.35, 0 );
         playerCollider.end.set( 0, 1, 0 );
         playerCollider.radius = 0.35;
         camera.position.copy( playerCollider.end );
         camera.rotation.set( 0, 0, 0 );
-        endGame(); // Call the game-over function
+        //endGame(); // Call the game-over function
     }
 }
 function throwBall(spheres, sphereIdx, camera, playerCollider, playerVelocity, playerDirection, mouseTime) {
@@ -175,4 +199,4 @@ function throwBall(spheres, sphereIdx, camera, playerCollider, playerVelocity, p
     sphere.velocity.addScaledVector( playerVelocity, 2 );
     sphereIdx = ( sphereIdx + 1 ) % spheres.length;
 }
-export { updatePlayer, updateSpheres, teleportPlayerIfOob, throwBall, updateEnemies, checkBallTargetCollisions, checkForEnemyCollisions};
+export { updatePlayer, updateSpheres, teleportPlayerIfOob, throwBall, updateEnemies, checkBallTargetCollisions, checkForEnemyCollisions, playerCollisions};

@@ -1,13 +1,14 @@
 import * as THREE from 'three';
+import { Capsule } from 'three/examples/jsm/math/Capsule.js';
 
 export class NPC {
     constructor({
         scene,
         startPos = new THREE.Vector3(),
         behavior = {
-            jumpFrequency: 0.5, // seconds between jumps
-            ballThrowPower: 10, // velocity multiplier for thrown balls
-            ballThrowFrequency: 2.0, // seconds between throws
+            jumpFrequency: 4, // seconds between jumps
+            ballThrowPower: 100, // velocity multiplier for thrown balls
+            ballThrowFrequency: 5, // seconds between throws
             targetSelectionRadius: 15, // max distance to select targets
             enemyAvoidanceDistance: 5, // distance to avoid enemies
             movementSpeedMultiplier: 1.0 // multiplier for base speed
@@ -83,7 +84,7 @@ export class NPC {
 
         // Jumping
         if (this.onFloor && time - this.lastJump > this.behavior.jumpFrequency) {
-            this.velocity.y = 10; // jump impulse
+            this.velocity.y = 15; // jump impulse
             this.lastJump = time;
             this.onFloor = false;
         }
@@ -98,7 +99,16 @@ export class NPC {
         // Collision with world (reuse player collision logic)
         // Assuming playerCollisions function is available or imported
         // For now, placeholder: this.onFloor = capsuleIntersect(this.collider, worldOctree) or similar
-
+        const result = worldOctree.capsuleIntersect(this.collider);
+        if ( result ) {
+        this.onFloor = result.normal.y > 0; // Set onFloor based on collision normal
+        if ( ! this.onFloor ) {
+            this.velocity.addScaledVector( result.normal, - result.normal.dot( this.velocity ) );
+        }
+        if ( result.depth >= 1e-10 ) {
+            this.collider.translate( result.normal.multiplyScalar( result.depth ) );
+        }
+        }
         // Sync mesh
         this.mesh.position.copy(this.getCenter());
 
