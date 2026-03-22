@@ -92,12 +92,22 @@ export class NPC {
         // Gravity
         this.velocity.y -= GRAVITY * delta;
 
+         // DEBUG: Check if worldOctree exists
+    if (!worldOctree) {
+        console.error("NPC: worldOctree is null or undefined!");
+        return;
+    }
+
         // Update collider position (FIXED: proper capsule update)
         const deltaPos = this.velocity.clone().multiplyScalar(delta);
         this.collider.translate(deltaPos); // Use translate() method like player does
 
         // Collision with world
         const result = worldOctree.capsuleIntersect(this.collider);
+        // DEBUG: Log collision results
+    if (time % 1 < delta) {
+        console.log(`Collision result:`, result ? "HIT" : "MISS");
+    }
         this.onFloor = false;
         
         if (result) {

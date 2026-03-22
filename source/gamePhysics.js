@@ -86,18 +86,30 @@ function spheresCollisions(spheres, vector1, vector2, vector3) {
         }
     }
 }
-function updateEnemies(deltaTime, enemies, enemyBounds) {
+function updateEnemiesAndTargets(deltaTime, enemies, targets, enemyAndTargetBounds) {
     enemies.forEach(enemy => {
         // Update Enemy Position Based On Velocity And Direction
         enemy.collider.center.y += enemy.velocity.y * enemy.direction * deltaTime;
         // Reverse Direction If The Enemy Reaches The Upper Or Lower Bounds
-        if (enemy.collider.center.y > enemyBounds.maxY) {
+        if (enemy.collider.center.y > enemyAndTargetBounds.maxY) {
             enemy.direction = -1; // Move down
-        } else if (enemy.collider.center.y < enemyBounds.minY) {
+        } else if (enemy.collider.center.y < enemyAndTargetBounds.minY) {
             enemy.direction = 1; // Move up
         }
         // Update Enemy Mesh Position
         enemy.mesh.position.copy(enemy.collider.center);
+    });
+    targets.forEach(target => {
+        // Update Target Position Based On Velocity And Direction
+        target.collider.center.y += target.velocity.y * target.direction * deltaTime;
+        // Reverse Direction If The Target Reaches The Upper Or Lower Bounds
+        if (target.collider.center.y > enemyAndTargetBounds.maxY) {
+            target.direction = -1; // Move down
+        } else if (target.collider.center.y < enemyAndTargetBounds.minY) {
+            target.direction = 1; // Move up
+        }
+        // Update Target Mesh Position
+        target.mesh.position.copy(target.collider.center);
     });
 }
 /*
@@ -224,4 +236,4 @@ function throwBall(spheres, sphereIdx, camera, playerCollider, playerVelocity, p
     sphere.velocity.addScaledVector( playerVelocity, 2 );
     sphereIdx = ( sphereIdx + 1 ) % spheres.length;
 }
-export { updatePlayer, updateSpheres, teleportPlayerIfOob, throwBall, updateEnemies, checkBallTargetCollisions, checkForEnemyCollisions, playerCollisions};
+export { updatePlayer, updateSpheres, teleportPlayerIfOob, throwBall, updateEnemiesAndTargets, checkBallTargetCollisions, checkForEnemyCollisions, playerCollisions};

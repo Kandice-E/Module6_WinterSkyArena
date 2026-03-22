@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { controls, eventListeners } from './controls.js'; 
-import { updatePlayer, updateSpheres, teleportPlayerIfOob, updateEnemies, checkBallTargetCollisions, checkForEnemyCollisions } from './gamePhysics.js';
+import { updatePlayer, updateSpheres, teleportPlayerIfOob, updateEnemiesAndTargets, checkBallTargetCollisions, checkForEnemyCollisions } from './gamePhysics.js';
 import { createScene, createCamera, createRenderer } from './sceneSetup.js';
 import Stats from 'three/examples/jsm/libs/stats.module.js';
 import { addSFPoints } from './pointGeneration.js';
@@ -27,7 +27,7 @@ let sphereIdx = 0;
 const NUM_ENEMIES = 25;
 const ENEMY_RADIUS = 0.5; // Radius of enemy collider
 const enemies = [];
-const enemyBounds = { minY: -2, maxY: 10};
+const enemyAndTargetBounds = { minY: -2, maxY: 10};
 const NUM_TARGETS = 10;
 const TARGET_RADIUS = 0.5;
 const targets = [];
@@ -125,14 +125,24 @@ for (let i = 0; i < NUM_TARGETS; i++) {
     target.castShadow = true;
     target.receiveShadow = true;
     scene.add(target);
+    let randomX, randomY, randomZ, dist;
     // Place Targets Randomly Within The Octree Bounds
-    const randomX = Math.random() * 30 - 10; // Adjust based on your octree bounds
-    const randomY = Math.random() * 2;  // Adjust based on your octree bounds
-    const randomZ = Math.random() * 30 - 10; // Adjust based on your octree bounds
-    target.position.set(randomX, randomY, randomZ);
+    do {
+        randomX = Math.random() * 30 - 10; // Adjust based on your octree bounds
+        randomY = Math.random() * 2;  // Adjust based on your octree bounds
+        randomZ = Math.random() * 30 - 10; // Adjust based on your octree bounds
+    // Calculate distance from player start position (0, 0.35, 0)
+        dist = Math.sqrt(randomX * randomX + (randomY - 0.35) * (randomY - 0.35) + randomZ * randomZ);
+    } while (dist < 4); // Minimum distance of 4 units from player
+    //const randomX = Math.random() * 30 - 10; // Adjust based on your octree bounds
+    //const randomY = Math.random() * 2;  // Adjust based on your octree bounds
+    //const randomZ = Math.random() * 30 - 10; // Adjust based on your octree bounds
+    //target.position.set(randomX, randomY, randomZ);
     targets.push({
         mesh: target,
         collider: new THREE.Sphere(new THREE.Vector3(randomX, randomY, randomZ), TARGET_RADIUS),
+        velocity: new THREE.Vector3(0, Math.random() * 2 + 1, 0), // Random movement
+        direction: 1, // 1 for moving up, -1 for moving down
     });
 }
 // Add NPC
@@ -186,7 +196,7 @@ loader.load('./assets/collision-world.glb', ( gltf ) => {
             }
         });
         // Create NPC after the world is loaded to ensure it has access to the octree for navigation
-        npc = new NPC({ scene, startPos: new THREE.Vector3(5, 5, 5), behavior: npcBehavior });
+        npc = new NPC({ scene, startPos: new THREE.Vector3(5, 0.75, 5), behavior: npcBehavior });
         console.log("NPC initialized after world load");
     });
 // Add Snowflake Points
@@ -393,7 +403,7 @@ function animate() {
         controls(keyStates, playerVelocity, camera, playerDirection, deltaTime, playerOnFloor);
         updatePlayer(deltaTime, playerOnFloor, playerVelocity, playerCollider, worldOctree, GRAVITY, camera);
         updateSpheres(deltaTime, spheres, worldOctree, GRAVITY, playerCollider, playerVelocity, vector1, vector2, vector3);
-        updateEnemies(deltaTime, enemies, enemyBounds); // Update enemies within the octree
+        updateEnemiesAndTargets(deltaTime, enemies, targets, enemyAndTargetBounds); // Update enemies and targets within the octree
         /*npc.update(deltaTime); // Update NPC behavior and position
         if (npc.checkCollisionWith(playerCollider)) {
             console.log("Player hit NPC!");
