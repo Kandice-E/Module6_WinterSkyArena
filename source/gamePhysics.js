@@ -146,13 +146,15 @@ function checkBallTargetCollisions(spheres, targets, score, npc, worldOctree) {
             const distance = sphere.collider.center.distanceTo(target.collider.center);
             const combinedRadius = sphere.collider.radius + target.collider.radius;
             if (distance < combinedRadius) {
-                if (target === targets[npc.targetIndex]) {
+                if (target === targets[npc.targetIndex] && npc.lastBallIndex === spheres.indexOf(sphere)) {
                     console.log("NPC hit a target!");
                     score.npcCounter += 1;
                 }
                 else {
                     console.log("Player hit a target!");
                     score.counter += 1;
+                    // Reset NPC Target Index To Force It To Select A New Target
+                    npc.targetIndex = -1;
                 }
                 updateScoreDisplay(score); // Update the score display
                 // Move Target To A New Random Position

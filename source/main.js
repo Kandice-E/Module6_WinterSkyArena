@@ -90,7 +90,9 @@ function npcSpawnBall(origin, velocity) {
     s.collider.center.copy(origin);
     s.mesh.position.copy(origin);
     s.velocity.copy(velocity);
+    const ballThrown = sphereIdx; // Store the index of the thrown ball for potential NPC tracking
     sphereIdx = (sphereIdx + 1) % spheres.length;
+    return ballThrown; // Return the index of the thrown ball for NPC tracking
 }
 // Add Enemies
 const enemyGeometry = new THREE.SphereGeometry(ENEMY_RADIUS, 16, 16);
@@ -208,7 +210,7 @@ export function updateScoreDisplay(score) {
     const scoreElement = document.getElementById('score');
     if (scoreElement) {
         console.log("Score element found!"); // Debugging line
-        scoreElement.innerText = `Score: ${score.counter}/n NPC Score: ${score.npcCounter}`;
+        scoreElement.innerText = `Player Score: ${score.counter} NPC Score: ${score.npcCounter}`;
     } else {
         console.error("Score element not found!");
     }

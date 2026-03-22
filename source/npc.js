@@ -40,6 +40,7 @@ export class NPC {
         this.velocity = new THREE.Vector3();
         this.onFloor = false;
         this.targetIndex = -1;
+        this.lastBallIndex = 0;
         this.lastJump = 0;
         this.lastThrow = 0;
         this.baseSpeed = 2.5; // base movement speed
@@ -133,7 +134,8 @@ export class NPC {
             const target = targets[this.targetIndex];
             const dir = target.collider.center.clone().sub(spawnPos).normalize();
             const velocity = dir.multiplyScalar(this.behavior.ballThrowPower);
-            if (spawnBallFn) spawnBallFn(spawnPos, velocity);
+            //if (spawnBallFn) spawnBallFn(spawnPos, velocity);
+            this.lastBallIndex = spawnBallFn ? spawnBallFn(spawnPos, velocity) : this.lastBallIndex; // Store index of thrown ball for potential tracking
         }
     }
 
