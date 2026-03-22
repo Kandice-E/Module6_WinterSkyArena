@@ -148,14 +148,14 @@ const npc = new NPC({
 });*/
 // Add NPC With More Complex Behavior
 const npcBehavior = {
-    jumpFrequency: 1.0, // jumps every 1 second
-    ballThrowPower: 12, // stronger throws
-    ballThrowFrequency: 1.5, // throws every 1.5 seconds
-    targetSelectionRadius: 20, // selects targets up to 20 units away
+    jumpFrequency: 2.0, // jumps every 3 seconds
+    ballThrowPower: 40, // stronger throws
+    ballThrowFrequency: 2.0, // throws every 2.0 seconds
+    targetSelectionRadius: 25, // selects targets up to 25 units away
     enemyAvoidanceDistance: 7, // avoids enemies within 7 units
-    movementSpeedMultiplier: 1.2 // 20% faster movement
+    movementSpeedMultiplier: 2.0 // 20% faster movement
 };
-const npc = new NPC({ scene, startPos: new THREE.Vector3(5, 0, 5), behavior: npcBehavior });
+//const npc = new NPC({ scene, startPos: new THREE.Vector3(0, 0.35, 0), behavior: npcBehavior });
 
 // Add Lights Using Skybox
 new HDRLoader().load('./assets/belfast_sunset_puresky_2k.hdr', function(skyTexture) {
@@ -164,6 +164,7 @@ new HDRLoader().load('./assets/belfast_sunset_puresky_2k.hdr', function(skyTextu
     scene.environment = skyTexture;
     scene.environmentIntensity = 0.5;
 })
+let npc; // Declare npc variable here to ensure it's in scope for the game loop and other functions
 // Load Game Model
 const loader = new GLTFLoader();
 loader.load('./assets/collision-world.glb', ( gltf ) => {
@@ -184,6 +185,9 @@ loader.load('./assets/collision-world.glb', ( gltf ) => {
                 console.log('Mesh name:', child.name);
             }
         });
+        // Create NPC after the world is loaded to ensure it has access to the octree for navigation
+        npc = new NPC({ scene, startPos: new THREE.Vector3(5, 5, 5), behavior: npcBehavior });
+        console.log("NPC initialized after world load");
     });
 // Add Snowflake Points
 const points = addSFPoints();
@@ -370,6 +374,7 @@ startButton.addEventListener('click', () => {
     }
     startScreen.style.display = 'none'; // Hide the start screen
     backgroundMusic.play(); // Start the background music
+    clock.start(); // Start the clock for timing
     startTimer(); // Start the timer
     animate(); // Start the game loop
 });
@@ -394,12 +399,12 @@ function animate() {
             console.log("Player hit NPC!");
             endGame(); // End game if player collides with NPC (temporary game-over condition for testing)
         }*/
-       npc.update(deltaTime, worldOctree, targets, enemies, npcSpawnBall, clock.getElapsedTime());
+       npc.update(deltaTime, worldOctree, targets, enemies, npcSpawnBall, clock.getElapsedTime(), GRAVITY);
         //checkForEnemyCollisions(playerCollider, enemies, camera); // Check for collisions with enemies using general collision function
         checkForEnemyCollisions(npc.collider, playerCollider, enemies, camera); // Check for collisions between NPC and enemies
         //checkBallTargetCollisions(spheres, targets, score); // Check for player collisions with targets
-        checkBallTargetCollisions(spheres, targets, score, npc); // Check for NPC collisions with targets
-        teleportPlayerIfOob(camera, playerCollider, npc);
+        checkBallTargetCollisions(spheres, targets, score, npc, worldOctree); // Check for NPC collisions with targets
+        teleportPlayerIfOob(camera, playerCollider, npc.collider, npc);
     }
     stats.update();
     renderer.render(scene, camera);
@@ -499,10 +504,12 @@ function restartGame() {
     playerCollider.end.set(0, 1, 0);
     playerVelocity.set(0, 0, 0);
     // Reset NPC Position, Velocity, and Behavior State
-    npc.collider.start.set(5, 0.35, 5);
-    npc.collider.end.set(5, 1, 5);
+    npc.collider.start.set(5, 5, 5);
+    npc.collider.end.set(5, 6, 5);
     npc.velocity.set(0, 0, 0);
     npc.behaviorState = {}; // Reset any custom behavior state variables
+    npc.targetIndex = -1; // Reset target index to force new target selection
+    npc.mesh.position.copy(npc.getCenter()); // Ensure NPC mesh is positioned correctly
     // Reset Spheres
     spheres.forEach(sphere => {
         sphere.mesh.visible = false;

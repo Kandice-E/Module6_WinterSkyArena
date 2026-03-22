@@ -6,7 +6,7 @@ export class NPC {
         scene,
         startPos = new THREE.Vector3(),
         behavior = {
-            jumpFrequency: 4, // seconds between jumps
+            jumpFrequency: 1, // seconds between jumps
             ballThrowPower: 100, // velocity multiplier for thrown balls
             ballThrowFrequency: 5, // seconds between throws
             targetSelectionRadius: 15, // max distance to select targets
@@ -23,7 +23,7 @@ export class NPC {
         const radius = 0.35;
         this.collider = new Capsule(
             new THREE.Vector3(startPos.x, startPos.y, startPos.z),
-            new THREE.Vector3(startPos.x, startPos.y + height, startPos.z),
+            new THREE.Vector3(startPos.x, height, startPos.z),
             radius
         );
 
@@ -83,7 +83,7 @@ export class NPC {
         this.velocity.z = moveDir.z * speed;
 
         // Jumping
-        if (this.onFloor && time - this.lastJump > this.behavior.jumpFrequency) {
+        if (this.onFloor && (time - this.lastJump) > this.behavior.jumpFrequency) {
             this.velocity.y = 15; // jump impulse
             this.lastJump = time;
             this.onFloor = false;
@@ -92,23 +92,27 @@ export class NPC {
         // Gravity
         this.velocity.y -= GRAVITY * delta;
 
-        // Update collider position
-        this.collider.start.addScaledVector(this.velocity, delta);
-        this.collider.end.addScaledVector(this.velocity, delta);
+        // Update collider position (FIXED: proper capsule update)
+        const deltaPos = this.velocity.clone().multiplyScalar(delta);
+        this.collider.translate(deltaPos); // Use translate() method like player does
 
-        // Collision with world (reuse player collision logic)
-        // Assuming playerCollisions function is available or imported
-        // For now, placeholder: this.onFloor = capsuleIntersect(this.collider, worldOctree) or similar
+        // Collision with world
         const result = worldOctree.capsuleIntersect(this.collider);
-        if ( result ) {
-        this.onFloor = result.normal.y > 0; // Set onFloor based on collision normal
-        if ( ! this.onFloor ) {
-            this.velocity.addScaledVector( result.normal, - result.normal.dot( this.velocity ) );
+        this.onFloor = false;
+        
+        if (result) {
+            this.onFloor = result.normal.y > 0;
+            if (!this.onFloor) {
+                this.velocity.addScaledVector(result.normal, -result.normal.dot(this.velocity));
+            }
+            if (result.depth >= 1e-10) {
+                this.collider.translate(result.normal.multiplyScalar(result.depth));
+            }
+        } else {
+            // Not on floor and no collision = falling
+            this.onFloor = false;
         }
-        if ( result.depth >= 1e-10 ) {
-            this.collider.translate( result.normal.multiplyScalar( result.depth ) );
-        }
-        }
+        
         // Sync mesh
         this.mesh.position.copy(this.getCenter());
 

@@ -145,7 +145,7 @@ function checkForEnemyCollisions(npcCollider, playerCollider, enemies, camera) {
         }
     }
 }
-function checkBallTargetCollisions(spheres, targets, score, npc) {
+function checkBallTargetCollisions(spheres, targets, score, npc, worldOctree) {
     spheres.forEach (sphere => {
         for (const target of targets) {
             const distance = sphere.collider.center.distanceTo(target.collider.center);
@@ -161,21 +161,46 @@ function checkBallTargetCollisions(spheres, targets, score, npc) {
                 }
                 updateScoreDisplay(score); // Update the score display
                 // Move Target To A New Random Position
-                const randomX = Math.random() * 30 - 15; // Adjust based on your octree bounds
-                const randomY = Math.random() * 10 + 1;  // Adjust based on your octree bounds
-                const randomZ = Math.random() * 30 - 15; // Adjust based on your octree bounds
-                target.mesh.position.set(randomX, randomY, randomZ);
-                target.collider.center.set(randomX, randomY, randomZ); // Update the collider
+                //const randomX = Math.random() * 30 - 15; // Adjust based on your octree bounds
+                //const randomY = Math.random() * 10 + 1;  // Adjust based on your octree bounds
+                //const randomZ = Math.random() * 30 - 15; // Adjust based on your octree bounds
+                //target.mesh.position.set(randomX, randomY, randomZ);
+                //target.collider.center.set(randomX, randomY, randomZ); // Update the collider
+                checkTargetWallCollisions(target, worldOctree); // Ensure the new target position is valid and not inside a wall
+                break; // Exit loop after first collision to prevent multiple hits on the same target
             }
         }
     });
 }
-function teleportPlayerIfOob(camera, playerCollider, npc) {
+function checkTargetWallCollisions(target, worldOctree) {
+    // Move Target To A New Random Position
+    const randomX = Math.random() * 30 - 15; // Adjust based on your octree bounds
+    const randomY = Math.random() * 10 + 1;  // Adjust based on your octree bounds
+    const randomZ = Math.random() * 30 - 15; // Adjust based on your octree bounds
+    target.mesh.position.set(randomX, randomY, randomZ);
+    target.collider.center.set(randomX, randomY, randomZ); // Update the collider
+    //let targetOnFloor = false;
+    let result = worldOctree.sphereIntersect(target.collider);
+    if (result) { // If The Target Is Inside A Wall, Move It Out By The Penetration Depth
+         //targetOnFloor = result.normal.y > 0;
+        //if (!targetOnFloor) { //
+            //  target.velocity.addScaledVector(result.normal, -result.normal.dot(target.velocity));
+        //}
+        target.collider.center.add(result.normal.multiplyScalar(result.depth));
+        checkTargetWallCollisions(target, worldOctree); // Recursively Check Again In Case The New Position Is Also Invalid    
+        //if (result.depth >= 1e-10) { // If The Target Is Deeply Embedded In A Wall, Move It Out By The Penetration Depth
+            // target.collider.center.add(result.normal.multiplyScalar(result.depth));
+        //}
+    }
+}
+
+function teleportPlayerIfOob(camera, playerCollider, npcCollider, npc) {
     if (npc.mesh.position.y <= -25) {
         console.log("NPC fell out of bounds. Resetting position.");
-        playerCollider.start.set( 0, 0.35, 0 );
-        playerCollider.end.set( 0, 1, 0 );
-        playerCollider.radius = 0.35;
+        npcCollider.start.set( 5, 5, 5 );
+        npcCollider.end.set( 5, 6, 5 );
+        npcCollider.radius = 0.35;
+        npc.mesh.position.copy( npc.getCenter() );
         //endGame(); // Call the game-over function
     }
     if ( camera.position.y <= -25 ) {
