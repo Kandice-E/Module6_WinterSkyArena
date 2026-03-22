@@ -112,24 +112,7 @@ function updateEnemiesAndTargets(deltaTime, enemies, targets, enemyAndTargetBoun
         target.mesh.position.copy(target.collider.center);
     });
 }
-/*
-Player-Enemy Collision Detection (Updated To Use General Collision Function)
-function checkPlayerEnemyCollisions(playerCollider, enemies, camera) {
-    for (const enemy of enemies) {
-        const distance = playerCollider.start.distanceTo(enemy.collider.center);
-        const combinedRadius = playerCollider.radius + enemy.collider.radius;
-        if (distance < combinedRadius) {
-            console.log("Game Over! Player collided with an enemy.");
-            playerCollider.start.set( 0, 0.35, 0 );
-            playerCollider.end.set( 0, 1, 0 );
-            playerCollider.radius = 0.35;
-            camera.position.copy( playerCollider.end );
-            camera.rotation.set( 0, 0, 0 );
-            endGame(); // Call the game-over function
-            break;
-        }
-    }
-}*/
+
 // General Collision Detection Function For Player-Enemy Collisions and NPC Collisions
 function checkForEnemyCollisions(npcCollider, playerCollider, enemies, camera) {
     for (const enemy of enemies) {
@@ -173,11 +156,6 @@ function checkBallTargetCollisions(spheres, targets, score, npc, worldOctree) {
                 }
                 updateScoreDisplay(score); // Update the score display
                 // Move Target To A New Random Position
-                //const randomX = Math.random() * 30 - 15; // Adjust based on your octree bounds
-                //const randomY = Math.random() * 10 + 1;  // Adjust based on your octree bounds
-                //const randomZ = Math.random() * 30 - 15; // Adjust based on your octree bounds
-                //target.mesh.position.set(randomX, randomY, randomZ);
-                //target.collider.center.set(randomX, randomY, randomZ); // Update the collider
                 checkTargetWallCollisions(target, worldOctree); // Ensure the new target position is valid and not inside a wall
                 break; // Exit loop after first collision to prevent multiple hits on the same target
             }
@@ -194,15 +172,8 @@ function checkTargetWallCollisions(target, worldOctree) {
     //let targetOnFloor = false;
     let result = worldOctree.sphereIntersect(target.collider);
     if (result) { // If The Target Is Inside A Wall, Move It Out By The Penetration Depth
-         //targetOnFloor = result.normal.y > 0;
-        //if (!targetOnFloor) { //
-            //  target.velocity.addScaledVector(result.normal, -result.normal.dot(target.velocity));
-        //}
         target.collider.center.add(result.normal.multiplyScalar(result.depth));
         checkTargetWallCollisions(target, worldOctree); // Recursively Check Again In Case The New Position Is Also Invalid    
-        //if (result.depth >= 1e-10) { // If The Target Is Deeply Embedded In A Wall, Move It Out By The Penetration Depth
-            // target.collider.center.add(result.normal.multiplyScalar(result.depth));
-        //}
     }
 }
 

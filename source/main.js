@@ -5,7 +5,6 @@ import { createScene, createCamera, createRenderer } from './sceneSetup.js';
 import Stats from 'three/examples/jsm/libs/stats.module.js';
 import { addSFPoints } from './pointGeneration.js';
 import { animatePoints } from './spriteAnimation.js';
-import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
 import { HDRLoader } from 'three/examples/jsm/Addons.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { Capsule } from 'three/examples/jsm/math/Capsule.js';
@@ -134,10 +133,6 @@ for (let i = 0; i < NUM_TARGETS; i++) {
     // Calculate distance from player start position (0, 0.35, 0)
         dist = Math.sqrt(randomX * randomX + (randomY - 0.35) * (randomY - 0.35) + randomZ * randomZ);
     } while (dist < 4); // Minimum distance of 4 units from player
-    //const randomX = Math.random() * 30 - 10; // Adjust based on your octree bounds
-    //const randomY = Math.random() * 2;  // Adjust based on your octree bounds
-    //const randomZ = Math.random() * 30 - 10; // Adjust based on your octree bounds
-    //target.position.set(randomX, randomY, randomZ);
     targets.push({
         mesh: target,
         collider: new THREE.Sphere(new THREE.Vector3(randomX, randomY, randomZ), TARGET_RADIUS),
@@ -145,17 +140,7 @@ for (let i = 0; i < NUM_TARGETS; i++) {
         direction: 1, // 1 for moving up, -1 for moving down
     });
 }
-// Add NPC
-/*const npcGeometry = new THREE.BoxGeometry(2, 2, 2);
-const npcMaterial = new THREE.MeshBasicMaterial({ color: 0x0000ff});
-const npc = new NPC({
-    scene: scene,
-    startPosition: new THREE.Vector3(0, 0, 0),
-    geometry: npcGeometry,
-    material: npcMaterial,
-    colliderRadius: 0.35,
-    behaviorGenome: new THREE.Vector3(2, 0, 0)
-});*/
+
 // Add NPC With More Complex Behavior
 const npcBehavior = {
     jumpFrequency: 2.0, // jumps every 3 seconds
@@ -404,15 +389,8 @@ function animate() {
         updatePlayer(deltaTime, playerOnFloor, playerVelocity, playerCollider, worldOctree, GRAVITY, camera);
         updateSpheres(deltaTime, spheres, worldOctree, GRAVITY, playerCollider, playerVelocity, vector1, vector2, vector3);
         updateEnemiesAndTargets(deltaTime, enemies, targets, enemyAndTargetBounds); // Update enemies and targets within the octree
-        /*npc.update(deltaTime); // Update NPC behavior and position
-        if (npc.checkCollisionWith(playerCollider)) {
-            console.log("Player hit NPC!");
-            endGame(); // End game if player collides with NPC (temporary game-over condition for testing)
-        }*/
-       npc.update(deltaTime, worldOctree, targets, enemies, npcSpawnBall, clock.getElapsedTime(), GRAVITY);
-        //checkForEnemyCollisions(playerCollider, enemies, camera); // Check for collisions with enemies using general collision function
+        npc.update(deltaTime, worldOctree, targets, enemies, npcSpawnBall, clock.getElapsedTime(), GRAVITY);
         checkForEnemyCollisions(npc.collider, playerCollider, enemies, camera); // Check for collisions between NPC and enemies
-        //checkBallTargetCollisions(spheres, targets, score); // Check for player collisions with targets
         checkBallTargetCollisions(spheres, targets, score, npc, worldOctree); // Check for NPC collisions with targets
         teleportPlayerIfOob(camera, playerCollider, npc.collider, npc);
     }
