@@ -97,52 +97,59 @@ function npcSpawnBall(origin, velocity) {
 // Add Enemies
 const enemyGeometry = new THREE.SphereGeometry(ENEMY_RADIUS, 16, 16);
 const enemyMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 }); // Red color for enemies
-for (let i = 0; i < NUM_ENEMIES; i++) {
-    const enemy = new THREE.Mesh(enemyGeometry, enemyMaterial);
-    enemy.castShadow = true;
-    enemy.receiveShadow = true;
-    scene.add(enemy);
-    // Place Enemies Randomly Within The Octree Bounds, avoiding player spawn area
-    let randomX, randomY, randomZ, dist;
-    do {
-        randomX = Math.random() * 30 - 10; // Adjust based on your octree bounds
-        randomY = Math.random() * 5 + 1;   // Adjust based on your octree bounds
-        randomZ = Math.random() * 30 - 10; // Adjust based on your octree bounds
-        // Calculate distance from player start position (0, 0.35, 0)
-        dist = Math.sqrt(randomX * randomX + (randomY - 0.35) * (randomY - 0.35) + randomZ * randomZ);
-    } while (dist < 4); // Minimum distance of 4 units from player
-    enemies.push({
-        mesh: enemy,
-        collider: new THREE.Sphere(new THREE.Vector3(randomX, randomY, randomZ), ENEMY_RADIUS),
-        velocity: new THREE.Vector3(0, Math.random() * 2 + 1, 0), // Random movement
-        direction: 1, // 1 for moving up, -1 for moving down
-    });    
+// Function to initialize and reset enemy positions
+function positionEnemies() {
+    for (let i = 0; i < NUM_ENEMIES; i++) {
+        const enemy = new THREE.Mesh(enemyGeometry, enemyMaterial);
+        enemy.castShadow = true;
+        enemy.receiveShadow = true;
+        scene.add(enemy);
+        // Place Enemies Randomly Within The Octree Bounds, avoiding player spawn area
+        let randomX, randomY, randomZ, dist;
+        do {
+            randomX = Math.random() * 30 - 10; // Adjust based on your octree bounds
+            randomY = Math.random() * 5 + 1;   // Adjust based on your octree bounds
+            randomZ = Math.random() * 30 - 10; // Adjust based on your octree bounds
+            // Calculate distance from player start position (0, 0.35, 0)
+            dist = Math.sqrt(randomX * randomX + (randomY - 0.35) * (randomY - 0.35) + randomZ * randomZ);
+        } while (dist < 4); // Minimum distance of 4 units from player
+        enemies.push({
+            mesh: enemy,
+            collider: new THREE.Sphere(new THREE.Vector3(randomX, randomY, randomZ), ENEMY_RADIUS),
+            velocity: new THREE.Vector3(0, Math.random() * 2 + 1, 0), // Random movement
+            direction: 1, // 1 for moving up, -1 for moving down
+        });
+    } 
 }
+positionEnemies(); // Initial positioning of enemies
 // Add Targets
 const targetGeometry = new THREE.SphereGeometry(TARGET_RADIUS, 16, 16);
 const targetMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 }); // Green color for targets
-for (let i = 0; i < NUM_TARGETS; i++) {
-    const target = new THREE.Mesh(targetGeometry, targetMaterial);
-    target.castShadow = true;
-    target.receiveShadow = true;
-    scene.add(target);
-    let randomX, randomY, randomZ, dist;
-    // Place Targets Randomly Within The Octree Bounds
-    do {
-        randomX = Math.random() * 30 - 10; // Adjust based on your octree bounds
-        randomY = Math.random() * 2;  // Adjust based on your octree bounds
-        randomZ = Math.random() * 30 - 10; // Adjust based on your octree bounds
-    // Calculate distance from player start position (0, 0.35, 0)
-        dist = Math.sqrt(randomX * randomX + (randomY - 0.35) * (randomY - 0.35) + randomZ * randomZ);
-    } while (dist < 4); // Minimum distance of 4 units from player
-    targets.push({
+// Function to initialize and reset target positions
+function positionTargets() {
+    for (let i = 0; i < NUM_TARGETS; i++) {
+        const target = new THREE.Mesh(targetGeometry, targetMaterial);
+        target.castShadow = true;
+        target.receiveShadow = true;
+        scene.add(target);
+        let randomX, randomY, randomZ, dist;
+        // Place Targets Randomly Within The Octree Bounds
+        do {
+            randomX = Math.random() * 30 - 10; // Adjust based on your octree bounds
+            randomY = Math.random() * 2;  // Adjust based on your octree bounds
+            randomZ = Math.random() * 30 - 10; // Adjust based on your octree bounds
+            // Calculate distance from player start position (0, 0.35, 0)
+            dist = Math.sqrt(randomX * randomX + (randomY - 0.35) * (randomY - 0.35) + randomZ * randomZ);
+        } while (dist < 4); // Minimum distance of 4 units from player
+        targets.push({
         mesh: target,
         collider: new THREE.Sphere(new THREE.Vector3(randomX, randomY, randomZ), TARGET_RADIUS),
         velocity: new THREE.Vector3(0, Math.random() * 2 + 1, 0), // Random movement
         direction: 1, // 1 for moving up, -1 for moving down
-    });
+        });
+    }
 }
-
+positionTargets(); // Initial positioning of targets
 // Add NPC With More Complex Behavior
 const npcBehavior = {
     jumpFrequency: 2.0, // jumps every 3 seconds
@@ -183,7 +190,7 @@ loader.load('./assets/collision-world.glb', ( gltf ) => {
             }
         });
         // Create NPC after the world is loaded to ensure it has access to the octree for navigation
-        npc = new NPC({ scene, startPos: new THREE.Vector3(5, 0.75, 5), behavior: npcBehavior });
+        npc = new NPC({ scene, startPos: new THREE.Vector3(5, 0.75, 5) });
         console.log("NPC initialized after world load");
     });
 // Add Snowflake Points
@@ -407,6 +414,8 @@ export function endGame() {
     cancelAnimationFrame(animationFrameId); // Stop the animation loop
     backgroundMusic.pause(); // Stop the background music
     backgroundMusic.currentTime = 0; // Reset the music to the beginning
+    // Reset The Clock
+    clock.stop();
     // Create A Game-Over Overlay
     const gameOverScreen = document.createElement('div');
     gameOverScreen.id = 'game-over-screen';
@@ -494,11 +503,16 @@ function restartGame() {
     playerCollider.end.set(0, 1, 0);
     playerVelocity.set(0, 0, 0);
     // Reset NPC Position, Velocity, and Behavior State
-    npc.collider.start.set(5, 5, 5);
-    npc.collider.end.set(5, 6, 5);
+    npc.collider.start.set(0.6, 0.35, 0.6);
+    npc.collider.end.set(0.6, 1, 0.6);
     npc.velocity.set(0, 0, 0);
-    npc.behaviorState = {}; // Reset any custom behavior state variables
+    //npc.behaviorState = {}; // Reset any custom behavior state variables
     npc.targetIndex = -1; // Reset target index to force new target selection
+    npc.lastThrow = 0; // Reset throw timer
+    npc.lastJump = 0; // Reset jump timer
+    npc.lastBallIndex = 0; // Reset ball index for tracking thrown balls
+    npc.onFloor = false; // Reset on-floor state
+    npc.baseSpeed = 2.5; // Reset base movement speed
     npc.mesh.position.copy(npc.getCenter()); // Ensure NPC mesh is positioned correctly
     // Reset Spheres
     spheres.forEach(sphere => {
@@ -508,6 +522,11 @@ function restartGame() {
     });
     // Reset Enemies
     enemies.forEach(enemy => {
+        scene.remove(enemy.mesh); // Remove existing enemy meshes from the scene
+    });
+    enemies.length = 0; // Clear the enemies array
+    positionEnemies(); // Reposition enemies using the function to ensure they are placed correctly within the octree bounds
+    /*enemies.forEach(enemy => {
         const randomX = Math.random() * 30 - 10;
         const randomY = Math.random() * 5 + 1;
         const randomZ = Math.random() * 30 - 10;
@@ -515,14 +534,21 @@ function restartGame() {
         enemy.mesh.position.copy(enemy.collider.center);
         enemy.velocity.set(0, Math.random() * 2 + 1, 0);
         enemy.direction = 1;
-    });
+    });*/
     // Reset Targets
     targets.forEach(target => {
+        scene.remove(target.mesh); // Remove existing target meshes from the scene
+    });
+    targets.length = 0; // Clear the targets array
+    positionTargets(); // Reposition targets using the function to ensure they are placed correctly within the octree bounds    
+    /*targets.forEach(target => {
         const randomX = Math.random() * 30 - 10;
         const randomY = Math.random() * 2;
         const randomZ = Math.random() * 30 - 10;
         target.collider.center.set(randomX, randomY, randomZ);
-        target.mesh.position.set(randomX, randomY, randomZ);
-    });
+        target.mesh.position.copy(target.collider.center);
+        target.velocity.set(0, Math.random() * 2 + 1, 0);
+        target.direction = 1;
+    });*/
     startScreen.style.display = 'flex'; // Show the start screen again
 }

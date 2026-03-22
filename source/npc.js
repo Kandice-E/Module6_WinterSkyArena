@@ -6,12 +6,13 @@ export class NPC {
         scene,
         startPos = new THREE.Vector3(),
         behavior = {
-            jumpFrequency: 1, // seconds between jumps
-            ballThrowPower: 100, // velocity multiplier for thrown balls
-            ballThrowFrequency: 5, // seconds between throws
+            // Base behavior parameters that can be tweaked for different NPC personalities
+            jumpFrequency: 2.0, // seconds between jumps
+            ballThrowPower: 60, // velocity multiplier for thrown balls
+            ballThrowFrequency: 3.0, // seconds between throws
             targetSelectionRadius: 15, // max distance to select targets
-            enemyAvoidanceDistance: 5, // distance to avoid enemies
-            movementSpeedMultiplier: 1.0 // multiplier for base speed
+            enemyAvoidanceDistance: 7, // distance to avoid enemies
+            movementSpeedMultiplier: 2.0 // multiplier for base speed
         },
         modelOptions = {}
     }) {
@@ -22,8 +23,10 @@ export class NPC {
         const height = 1.0;
         const radius = 0.35;
         this.collider = new Capsule(
-            new THREE.Vector3(startPos.x, startPos.y, startPos.z),
-            new THREE.Vector3(startPos.x, height, startPos.z),
+            new THREE.Vector3(0.6, 0.35, 0.6),
+            //new THREE.Vector3(startPos.x, startPos.y, startPos.z),
+            //new THREE.Vector3(startPos.x, height, startPos.z),
+            new THREE.Vector3(0.6, height, 0.6),
             radius
         );
 
@@ -85,7 +88,7 @@ export class NPC {
 
         // Jumping
         if (this.onFloor && (time - this.lastJump) > this.behavior.jumpFrequency) {
-            this.velocity.y = 15; // jump impulse
+            this.velocity.y = 20; // jump impulse
             this.lastJump = time;
             this.onFloor = false;
         }

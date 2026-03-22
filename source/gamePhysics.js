@@ -150,11 +150,15 @@ function checkBallTargetCollisions(spheres, targets, score, npc, worldOctree) {
                     console.log("NPC hit a target!");
                     score.npcCounter += 1;
                 }
-                else {
+                else if (target === targets[npc.targetIndex] && npc.lastBallIndex !== spheres.indexOf(sphere)) {
                     console.log("Player hit a target!");
                     score.counter += 1;
                     // Reset NPC Target Index To Force It To Select A New Target
                     npc.targetIndex = -1;
+                }
+                else {
+                    console.log("Player hit a target!");
+                    score.counter += 1;
                 }
                 updateScoreDisplay(score); // Update the score display
                 // Move Target To A New Random Position
@@ -180,10 +184,10 @@ function checkTargetWallCollisions(target, worldOctree) {
 }
 
 function teleportPlayerIfOob(camera, playerCollider, npcCollider, npc) {
-    if (npc.mesh.position.y <= -25) {
+    if (npcCollider.start.y <= -25) {
         console.log("NPC fell out of bounds. Resetting position.");
-        npcCollider.start.set( 5, 5, 5 );
-        npcCollider.end.set( 5, 6, 5 );
+        npcCollider.start.set( 0.6, 0.35, 0.6 );
+        npcCollider.end.set( 0.6, 1, 0.6 );
         npcCollider.radius = 0.35;
         npc.mesh.position.copy( npc.getCenter() );
         //endGame(); // Call the game-over function
