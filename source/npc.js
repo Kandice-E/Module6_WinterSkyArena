@@ -47,6 +47,13 @@ export class NPC {
         this.lastJump = 0;
         this.lastThrow = 0;
         this.baseSpeed = 2.5; // base movement speed
+        this.timeSurvived = 0; // For fitness evaluation
+        this.targetsHit = 0; // For fitness evaluation
+        this.framesSafeDistance = 0; // For fitness evaluation
+        this.totalFrames = 0; // For fitness evaluation
+        this.averageActionLatency = 0; // For fitness evaluation
+        this.measuredJumpFrequency = 0; // For fitness evaluation
+        this.turnSpeed = Math.PI; // Radians per second for turning towards targets for Fitness evaluation
     }
 
     getCenter(out = new THREE.Vector3()) {
