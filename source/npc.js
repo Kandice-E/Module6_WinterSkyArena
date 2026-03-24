@@ -55,27 +55,22 @@ export class NPC {
         this.measuredJumpFrequency = 0; // For fitness evaluation
         this.turnSpeed = Math.PI; // Radians per second for turning towards targets for Fitness evaluation
     }
-
     getCenter(out = new THREE.Vector3()) {
         return out.copy(this.collider.start).add(this.collider.end).multiplyScalar(0.5);
     }
-
     update(delta, worldOctree, targets, enemies, spawnBallFn, time, GRAVITY = 30) {
         const center = this.getCenter();
-
         // Select target within radius
         if (this.targetIndex < 0 || !targets[this.targetIndex] ||
             center.distanceTo(targets[this.targetIndex].collider.center) > this.behavior.targetSelectionRadius) {
             this.targetIndex = this.findNearestTarget(center, targets, this.behavior.targetSelectionRadius);
         }
-
         // Calculate movement direction
         let moveDir = new THREE.Vector3();
         if (this.targetIndex >= 0) {
             const target = targets[this.targetIndex];
             moveDir = target.collider.center.clone().sub(center).normalize();
         }
-
         // Avoid enemies
         if (enemies && enemies.length > 0) {
             for (const enemy of enemies) {
@@ -87,40 +82,33 @@ export class NPC {
             }
             moveDir.normalize();
         }
-
         // Apply movement speed
         const speed = this.baseSpeed * this.behavior.movementSpeedMultiplier;
         this.velocity.x = moveDir.x * speed;
         this.velocity.z = moveDir.z * speed;
-
         // Jumping
         if (this.onFloor && (time - this.lastJump) > this.behavior.jumpFrequency) {
             this.velocity.y = 20; // jump impulse
             this.lastJump = time;
             this.onFloor = false;
         }
-
         // Gravity
         this.velocity.y -= GRAVITY * delta;
-
-         // DEBUG: Check if worldOctree exists
-    if (!worldOctree) {
+        // DEBUG: Check if worldOctree exists
+        if (!worldOctree) {
         console.error("NPC: worldOctree is null or undefined!");
         return;
-    }
-
+        }
         // Update collider position (FIXED: proper capsule update)
         const deltaPos = this.velocity.clone().multiplyScalar(delta);
         this.collider.translate(deltaPos); // Use translate() method like player does
-
         // Collision with world
         const result = worldOctree.capsuleIntersect(this.collider);
         // DEBUG: Log collision results
-    if (time % 1 < delta) {
+        if (time % 1 < delta) {
         console.log(`Collision result:`, result ? "HIT" : "MISS");
-    }
+        }
         this.onFloor = false;
-        
         if (result) {
             this.onFloor = result.normal.y > 0;
             if (!this.onFloor) {
@@ -133,10 +121,8 @@ export class NPC {
             // Not on floor and no collision = falling
             this.onFloor = false;
         }
-        
         // Sync mesh
         this.mesh.position.copy(this.getCenter());
-
         // Throwing balls
         if (time - this.lastThrow > this.behavior.ballThrowFrequency && this.targetIndex >= 0) {
             this.lastThrow = time;
@@ -148,7 +134,6 @@ export class NPC {
             this.lastBallIndex = spawnBallFn ? spawnBallFn(spawnPos, velocity) : this.lastBallIndex; // Store index of thrown ball for potential tracking
         }
     }
-
     findNearestTarget(center, targets, maxDist) {
         let nearest = -1;
         let minDist = maxDist;

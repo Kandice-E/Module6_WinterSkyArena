@@ -1,33 +1,39 @@
 import * as THREE from 'three';
 import { endGame, updateScoreDisplay } from './main.js';
 
-function updatePlayer(deltaTime, playerOnFloor, playerVelocity, playerCollider, worldOctree, GRAVITY, camera) {
+function updatePlayer(deltaTime, worldOctree, GRAVITY, camera, player) {
     let damping = Math.exp( - 4 * deltaTime ) - 1;
-    if ( !playerOnFloor.onFloor ) {
-        playerVelocity.y -= GRAVITY * deltaTime;
-        // Small Air Resistance
+    if (!player.onFloor) {
+        player.velocity.y -= GRAVITY * deltaTime;
         damping *= 0.1;
     }
-    playerVelocity.addScaledVector( playerVelocity, damping);
-    const deltaPosition = playerVelocity.clone().multiplyScalar( deltaTime );
-    playerCollider.translate( deltaPosition );
-    playerCollisions(worldOctree, playerCollider, playerOnFloor, playerVelocity);
-    camera.position.copy( playerCollider.end );
+    player.velocity.addScaledVector(player.velocity, damping);
+    const deltaPosition = player.velocity.clone().multiplyScalar(deltaTime);
+    player.collider.translate(deltaPosition);
+    playerCollisions(worldOctree, player);
+    camera.position.copy(player.collider.end);
 }
-function playerCollisions(worldOctree, playerCollider, playerOnFloor, playerVelocity) {
-    const result = worldOctree.capsuleIntersect( playerCollider );
-    playerOnFloor.onFloor = false;
-    if ( result ) {
-        playerOnFloor.onFloor = result.normal.y > 0;
-        if ( ! playerOnFloor.onFloor ) {
-            playerVelocity.addScaledVector( result.normal, - result.normal.dot( playerVelocity ) );
+function playerCollisions(worldOctree, player) {
+    /*if (player !== undefined && player !== null){
+        console.log("<<<<<<<<<<Player is DEFINED!>>>>>>>>>>");
+        console.log("Player Collider: ", player.collider);
+    }
+    else{
+        console.log("<<<<<<<<<Player IS NOT defined!>>>>>>>>>>");
+    }*///Debugging player undefined errors
+    const result = worldOctree.capsuleIntersect(player.collider);
+    player.onFloor = false;
+    if (result) {
+        player.onFloor = result.normal.y > 0;
+        if (!player.onFloor) {
+            player.velocity.addScaledVector( result.normal, - result.normal.dot(player.velocity));
         }
-        if ( result.depth >= 1e-10 ) {
-            playerCollider.translate( result.normal.multiplyScalar( result.depth ) );
+        if (result.depth >= 1e-10 ) {
+            player.collider.translate( result.normal.multiplyScalar( result.depth));
         }
     }
 }
-function updateSpheres(deltaTime, spheres, worldOctree, GRAVITY, playerCollider, playerVelocity, vector1, vector2, vector3 ) {
+function updateSpheres(deltaTime, spheres, worldOctree, GRAVITY, vector1, vector2, vector3, player ) {
     spheres.forEach( sphere => {
         sphere.collider.center.addScaledVector( sphere.velocity, deltaTime );
         const result = worldOctree.sphereIntersect( sphere.collider );
@@ -39,26 +45,26 @@ function updateSpheres(deltaTime, spheres, worldOctree, GRAVITY, playerCollider,
         }
         const damping = Math.exp( - 1.5 * deltaTime ) - 1;
         sphere.velocity.addScaledVector( sphere.velocity, damping );
-        playerSphereCollision( sphere, playerCollider, playerVelocity, vector1, vector2, vector3 );
+        playerSphereCollision( sphere, vector1, vector2, vector3, player );
     } );
     spheresCollisions(spheres, vector1, vector2, vector3);
     for ( const sphere of spheres ) {
         sphere.mesh.position.copy( sphere.collider.center );
     }
 }
-function playerSphereCollision(sphere, playerCollider, playerVelocity, vector1, vector2, vector3) {
-    const center = vector1.addVectors( playerCollider.start, playerCollider.end ).multiplyScalar( 0.5 );
+function playerSphereCollision(sphere, vector1, vector2, vector3, player) {
+    
+    const center = vector1.addVectors(player.collider.start, player.collider.end).multiplyScalar(0.5);
     const sphere_center = sphere.collider.center;
-    const r = playerCollider.radius + sphere.collider.radius;
+    const r = player.collider.radius + sphere.collider.radius;
     const r2 = r * r;
-    // Approximation: player = 3 spheres
-    for ( const point of [ playerCollider.start, playerCollider.end, center ] ) {
-        const d2 = point.distanceToSquared( sphere_center );
-        if ( d2 < r2 ) {
+    for (const point of [ player.collider.start, player.collider.end, center]) {
+        const d2 = point.distanceToSquared(sphere_center);
+        if (d2<r2){
             const normal = vector1.subVectors( point, sphere_center ).normalize();
-            const v1 = vector2.copy( normal ).multiplyScalar( normal.dot( playerVelocity ) );
+            const v1 = vector2.copy( normal ).multiplyScalar( normal.dot( player.velocity ) );
             const v2 = vector3.copy( normal ).multiplyScalar( normal.dot( sphere.velocity ) );
-            playerVelocity.add( v2 ).sub( v1 );
+            player.velocity.add( v2 ).sub( v1 );
             sphere.velocity.add( v1 ).sub( v2 );
             const d = ( r - Math.sqrt( d2 ) ) / 2;
             sphere_center.addScaledVector( normal, - d );
@@ -112,30 +118,34 @@ function updateEnemiesAndTargets(deltaTime, enemies, targets, enemyAndTargetBoun
         target.mesh.position.copy(target.collider.center);
     });
 }
-
 // General Collision Detection Function For Player-Enemy Collisions and NPC Collisions
-function checkForEnemyCollisions(npcCollider, playerCollider, enemies, camera) {
+function checkForEnemyCollisions(npcCollider, enemies, camera, player) {
+    
     for (const enemy of enemies) {
         const distance1 = npcCollider.start.distanceTo(enemy.collider.center);
-        const distance2 = playerCollider.start.distanceTo(enemy.collider.center);
+        const distance2 = player.collider.start.distanceTo(enemy.collider.center);
         const combinedRadius1 = npcCollider.radius + enemy.collider.radius;
-        const combinedRadius2 = playerCollider.radius + enemy.collider.radius;
+        const combinedRadius2 = player.collider.radius + enemy.collider.radius;
         if (distance1 < combinedRadius1) {
             console.log("NPC collided with an enemy.");
             npcCollider.start.set( 0, 0.35, 0 );
             npcCollider.end.set( 0, 1, 0 );
             npcCollider.radius = 0.35;
             endGame(); // Call the game-over function
+            // Future update could decrement npc number of lives
+            // and end game once lives equal zero.
             break;
         }
         if (distance2 < combinedRadius2) {
             console.log("Player collided with an enemy.");
-            playerCollider.start.set( 0, 0.35, 0 );
-            playerCollider.end.set( 0, 1, 0 );
-            playerCollider.radius = 0.35;
-            camera.position.copy( playerCollider.end );
+            player.collider.start.set( 0, 0.35, 0 );
+            player.collider.end.set( 0, 1, 0 );
+            player.collider.radius = 0.35;
+            camera.position.copy( player.collider.end );
             camera.rotation.set( 0, 0, 0 );
             endGame(); // Call the game-over function
+            // Future update could decrement npc number of lives
+            // and end game once lives equal zero.
             break;
         }
     }
@@ -182,8 +192,7 @@ function checkTargetWallCollisions(target, worldOctree) {
         checkTargetWallCollisions(target, worldOctree); // Recursively Check Again In Case The New Position Is Also Invalid    
     }
 }
-
-function teleportPlayerIfOob(camera, playerCollider, npcCollider, npc) {
+function teleportPlayerIfOob(camera, npcCollider, npc, player) {
     if (npcCollider.start.y <= -25) {
         console.log("NPC fell out of bounds. Resetting position.");
         npcCollider.start.set( 0.6, 0.35, 0.6 );
@@ -194,23 +203,23 @@ function teleportPlayerIfOob(camera, playerCollider, npcCollider, npc) {
     }
     if ( camera.position.y <= -25 ) {
         console.log("Player fell out of bounds. Resetting position.");
-        playerCollider.start.set( 0, 0.35, 0 );
-        playerCollider.end.set( 0, 1, 0 );
-        playerCollider.radius = 0.35;
-        camera.position.copy( playerCollider.end );
+        player.collider.start.set( 0, 0.35, 0 );
+        player.collider.end.set( 0, 1, 0 );
+        player.collider.radius = 0.35;
+        camera.position.copy( player.collider.end );
         camera.rotation.set( 0, 0, 0 );
         //endGame(); // Call the game-over function
     }
 }
-function throwBall(spheres, sphereIdx, camera, playerCollider, playerVelocity, playerDirection, mouseTime) {
+function throwBall(spheres, sphereIdx, camera, mouseTime, player) {
     const sphere = spheres[ sphereIdx ];
     sphere.mesh.visible = true;
-    camera.getWorldDirection( playerDirection );
-    sphere.collider.center.copy( playerCollider.end ).addScaledVector( playerDirection, playerCollider.radius * 1.5 );
+    camera.getWorldDirection( player.direction );
+    sphere.collider.center.copy( player.collider.end ).addScaledVector( player.direction, player.collider.radius * 1.5 );
     // Throw The Ball With More Force If We Hold The Button Longer, And If We Move Forward
     const impulse = 50 + 100 * ( 1 - Math.exp( ( mouseTime - performance.now() ) * 0.001 ) );
-    sphere.velocity.copy( playerDirection ).multiplyScalar( impulse );
-    sphere.velocity.addScaledVector( playerVelocity, 2 );
+    sphere.velocity.copy( player.direction ).multiplyScalar( impulse );
+    sphere.velocity.addScaledVector( player.velocity, 2 );
     sphereIdx = ( sphereIdx + 1 ) % spheres.length;
 }
 export { updatePlayer, updateSpheres, teleportPlayerIfOob, throwBall, updateEnemiesAndTargets, checkBallTargetCollisions, checkForEnemyCollisions, playerCollisions};

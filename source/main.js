@@ -9,15 +9,19 @@ import { HDRLoader } from 'three/examples/jsm/Addons.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { Capsule } from 'three/examples/jsm/math/Capsule.js';
 import { Octree } from 'three/examples/jsm/math/Octree.js';
+import { Player } from './player.js';
 import { NPC} from './npc.js';
 // Checking Changes
 //-----GLOBAL VARIABLES FOR IMPORT FUNCTIONS-----//
 const keyStates = {}; // Object to store key states
 let mouseTime = 0;
 const STEPS_PER_FRAME = 5;
-const playerVelocity = new THREE.Vector3();
-const playerDirection = new THREE.Vector3();
-let playerOnFloor = { onFloor: false };
+//const playerVelocity = new THREE.Vector3();
+//const playerDirection = new THREE.Vector3();
+//let playerOnFloor = { onFloor: false };
+//let playerTimeSurvived = 0; // For fitness evaluation
+//let playerJumpFrequency = 0; // For fitness evaluation
+//let playerTurnSpeed = 0; // For fitness evaluation
 const GRAVITY = 30;
 const NUM_SPHERES = 10;
 const SPHERE_RADIUS = 0.2; // Radius of sphere collider
@@ -168,6 +172,8 @@ new HDRLoader().load('./assets/belfast_sunset_puresky_2k.hdr', function(skyTextu
     scene.environment = skyTexture;
     scene.environmentIntensity = 0.5;
 })
+let player = new Player();
+//console.log("Player created after world load: ", player.direction); //Debug Line
 let npc; // Declare npc variable here to ensure it's in scope for the game loop and other functions
 // Load Game Model
 const loader = new GLTFLoader();
@@ -191,7 +197,7 @@ loader.load('./assets/collision-world.glb', ( gltf ) => {
         });
         // Create NPC after the world is loaded to ensure it has access to the octree for navigation
         npc = new NPC({ scene, startPos: new THREE.Vector3(5, 0.75, 5) });
-        console.log("NPC initialized after world load");
+        //console.log("NPC initialized after world load"); //Debug Line
     });
 // Add Snowflake Points
 const points = addSFPoints();
@@ -303,7 +309,7 @@ guideButton.addEventListener('click', () => {
 
 //-----START GAME-----//
 // Initialize Event Listeners For Controls
-eventListeners(mouseTime, keyStates, camera, spheres, sphereIdx, playerCollider, playerVelocity, playerDirection, playerOnFloor);
+eventListeners(mouseTime, keyStates, camera, spheres, sphereIdx, player);
 // Create The Start Screen Overlay
 const startScreen = document.createElement('div');
 startScreen.id = 'start-screen';
@@ -390,18 +396,19 @@ function animate() {
     console.log("Animation loop running...");
     animationFrameId = requestAnimationFrame(animate); // Store the frame ID
     animatePoints(points);
+    console.log("Snowflakes generated!");
     const deltaTime = Math.min( 0.05, clock.getDelta() ) / STEPS_PER_FRAME;
     // we look for collisions in substeps to mitigate the risk of
     // an object traversing another too quickly for detection.
     for ( let i = 0; i < STEPS_PER_FRAME; i ++ ) {
-        controls(keyStates, playerVelocity, camera, playerDirection, deltaTime, playerOnFloor);
-        updatePlayer(deltaTime, playerOnFloor, playerVelocity, playerCollider, worldOctree, GRAVITY, camera);
-        updateSpheres(deltaTime, spheres, worldOctree, GRAVITY, playerCollider, playerVelocity, vector1, vector2, vector3);
+        controls(keyStates, camera, deltaTime, player);
+        updatePlayer(deltaTime, worldOctree, GRAVITY, camera, player);
+        updateSpheres(deltaTime, spheres, worldOctree, GRAVITY, vector1, vector2, vector3, player);
         updateEnemiesAndTargets(deltaTime, enemies, targets, enemyAndTargetBounds); // Update enemies and targets within the octree
         npc.update(deltaTime, worldOctree, targets, enemies, npcSpawnBall, clock.getElapsedTime(), GRAVITY);
-        checkForEnemyCollisions(npc.collider, playerCollider, enemies, camera); // Check for collisions between NPC and enemies
+        checkForEnemyCollisions(npc.collider, enemies, camera, player); // Check for collisions between NPC and enemies
         checkBallTargetCollisions(spheres, targets, score, npc, worldOctree); // Check for NPC collisions with targets
-        teleportPlayerIfOob(camera, playerCollider, npc.collider, npc);
+        teleportPlayerIfOob(camera, npc.collider, npc, player);
     }
     stats.update();
     renderer.render(scene, camera);
@@ -498,10 +505,21 @@ function restartGame() {
     clearInterval(timerInterval); // Stop the previous timer
     timeRemaining = 180; // Reset to 3 minutes
     timerDisplay.innerText = '03:00'; // Reset the timer display
+    
+    // Reset Player Position And Velocity
+    player.collider.start.set(0, 0.35, 0);
+    player.collider.end.set(0, 1, 0);
+    player.velocity.set(0, 0, 0);
+    player.onFloor = false;
+    player.timeSurvived = 0;
+    player.jumpFrequency = 0;
+    player.turnSpeed = 0;
+    
+   /* 
     // Reset Player Position And Velocity
     playerCollider.start.set(0, 0.35, 0);
     playerCollider.end.set(0, 1, 0);
-    playerVelocity.set(0, 0, 0);
+    playerVelocity.set(0, 0, 0);*/
     // Reset NPC Position, Velocity, and Behavior State
     npc.collider.start.set(0.6, 0.35, 0.6);
     npc.collider.end.set(0.6, 1, 0.6);

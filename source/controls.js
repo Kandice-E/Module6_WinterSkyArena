@@ -6,7 +6,7 @@ function addControls(camera, domElement) {
     const orbitControls = new OrbitControls(camera, domElement);
     return orbitControls;
 }
-function eventListeners(mouseTime, keyStates, camera, spheres, sphereIdx, playerCollider, playerVelocity, playerDirection, playerOnFloor) {
+function eventListeners(mouseTime, keyStates, camera, spheres, sphereIdx, player) {
     document.addEventListener( 'keydown', ( event ) => {
         if ( event.key === ' ' ) {
             console.log("Space bar pressed!");
@@ -29,7 +29,7 @@ function eventListeners(mouseTime, keyStates, camera, spheres, sphereIdx, player
         mouseTime = performance.now();
     } );
     document.addEventListener( 'mouseup', () => {
-        if ( document.pointerLockElement !== null ) throwBall(spheres, sphereIdx, camera, playerCollider, playerVelocity, playerDirection, mouseTime);
+        if ( document.pointerLockElement !== null ) throwBall(spheres, sphereIdx, camera, mouseTime, player);
     } );
     document.body.addEventListener( 'mousemove', ( event ) => {
         if ( document.pointerLockElement === document.body ) {
@@ -38,44 +38,47 @@ function eventListeners(mouseTime, keyStates, camera, spheres, sphereIdx, player
         }
     } );
 }
-function getForwardVector(camera, playerDirection) {
-    camera.getWorldDirection( playerDirection );
-    playerDirection.y = 0;
-    playerDirection.normalize();
-    return playerDirection;
-}
-function getSideVector(camera, playerDirection) {
-    camera.getWorldDirection( playerDirection );
-    playerDirection.y = 0;
-    playerDirection.normalize();
-    playerDirection.cross( camera.up );
-    return playerDirection;
-}
-function controls(keyStates, playerVelocity, camera, playerDirection, deltaTime, playerOnFloor) {
+function controls(keyStates, camera, deltaTime, player) {
+   console.log("Player in Controls: ", player);
     // Gives A Bit Of Air Control
-    const speedDelta = deltaTime * ( playerOnFloor.onFloor ? 30 : 8 );
+    const speedDelta = deltaTime * ( player.onFloor ? 30 : 8 );
     let forward = new THREE.Vector3();
     let side = new THREE.Vector3();
+    
     if ( keyStates[ 'w' ] ) {
-        forward.copy(getForwardVector(camera, playerDirection));
-        playerVelocity.add( forward.clone().multiplyScalar( speedDelta ) );
+        //playerDirection.copy(player.direction);
+        forward.copy(getForwardVector(camera, player));
+        player.velocity.add( forward.clone().multiplyScalar( speedDelta ) );
     }
     if ( keyStates[ 's' ] ) {
-        forward.copy(getForwardVector(camera, playerDirection));
-        playerVelocity.add( forward.clone().multiplyScalar( - speedDelta ) );
+        forward.copy(getForwardVector(camera, player));
+        player.velocity.add( forward.clone().multiplyScalar( - speedDelta ) );
     }
     if ( keyStates[ 'a' ] ) {
-        side.copy(getSideVector(camera, playerDirection));
-        playerVelocity.add( side.clone().multiplyScalar( - speedDelta ) );
+        side.copy(getSideVector(camera, player));
+        player.velocity.add( side.clone().multiplyScalar( - speedDelta ) );
     }
     if ( keyStates[ 'd' ] ) {
-        side.copy(getSideVector(camera, playerDirection));
-        playerVelocity.add( side.clone().multiplyScalar( speedDelta ) );
+        side.copy(getSideVector(camera, player));
+        player.velocity.add( side.clone().multiplyScalar( speedDelta ) );
     }
-    if ( keyStates[ ' ' ] && playerOnFloor.onFloor ) {
-        console.log("Velocity:", playerVelocity);
-        playerVelocity.y = 15;
-        console.log("Player Velocity Y:", playerVelocity.y);
+    if ( keyStates[ ' ' ] && player.onFloor ) {
+        console.log("Velocity:", player.velocity);
+        player.velocity.y = 15;
+        console.log("Player Velocity Y:", player.velocity.y);
     }
+}
+function getForwardVector(camera, player) {
+    camera.getWorldDirection( player.getDirection() );
+    player.setDirectionY(0);
+    player.getDirection().normalize();
+    return player.getDirection();
+}
+function getSideVector(camera, player) {
+    camera.getWorldDirection( player.getDirection() );
+    player.setDirectionY(0);
+    player.getDirection().normalize();
+    player.getDirection().cross( camera.up );
+    return player.getDirection();
 }
 export { addControls, controls, eventListeners };
