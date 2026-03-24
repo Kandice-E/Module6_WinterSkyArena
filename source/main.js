@@ -15,7 +15,7 @@ import { NPC} from './npc.js';
 //-----GLOBAL VARIABLES FOR IMPORT FUNCTIONS-----//
 const keyStates = {}; // Object to store key states
 let mouseTime = 0;
-const STEPS_PER_FRAME = 5;
+const STEPS_PER_FRAME = 3;
 //const playerVelocity = new THREE.Vector3();
 //const playerDirection = new THREE.Vector3();
 //let playerOnFloor = { onFloor: false };
@@ -78,7 +78,7 @@ for ( let i = 0; i < NUM_SPHERES; i ++ ) {
     const sphere = new THREE.Mesh( sphereGeometry, sphereMaterial );
     sphere.material.map = sphereTexture; // Apply the snowball texture to the sphere
     sphere.material.needsUpdate = true; // Ensure the material updates with the new texture
-    sphere.castShadow = true;
+    sphere.castShadow = false;
     sphere.receiveShadow = true;
     scene.add( sphere );
     spheres.push( {
@@ -105,7 +105,7 @@ const enemyMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 }); // Red c
 function positionEnemies() {
     for (let i = 0; i < NUM_ENEMIES; i++) {
         const enemy = new THREE.Mesh(enemyGeometry, enemyMaterial);
-        enemy.castShadow = true;
+        enemy.castShadow = false;
         enemy.receiveShadow = true;
         scene.add(enemy);
         // Place Enemies Randomly Within The Octree Bounds, avoiding player spawn area
