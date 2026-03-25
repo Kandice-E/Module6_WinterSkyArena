@@ -65,6 +65,7 @@ function controls(keyStates, camera, deltaTime, player) {
     if ( keyStates[ ' ' ] && player.onFloor ) {
         console.log("Velocity:", player.velocity);
         player.velocity.y = 15;
+        player.jumpCount += 1;
         console.log("Player Velocity Y:", player.velocity.y);
     }
 }

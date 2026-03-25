@@ -159,6 +159,7 @@ function checkBallTargetCollisions(spheres, targets, score, npc, worldOctree) {
                 if (target === targets[npc.targetIndex] && npc.lastBallIndex === spheres.indexOf(sphere)) {
                     console.log("NPC hit a target!");
                     score.npcCounter += 1;
+                    npc.targetsHit += 1;
                 }
                 else if (target === targets[npc.targetIndex] && npc.lastBallIndex !== spheres.indexOf(sphere)) {
                     console.log("Player hit a target!");

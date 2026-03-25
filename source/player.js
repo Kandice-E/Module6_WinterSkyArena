@@ -8,6 +8,7 @@ export class Player {
         this.onFloor = false,
         this.timeSurvived = 1,
         this.jumpFrequency = 1,
+        this.jumpCount = 1,
         this.turnSpeed = 1,
         this.collider = new Capsule(
         new THREE.Vector3( 0.1, 0.35, 0.1 ),

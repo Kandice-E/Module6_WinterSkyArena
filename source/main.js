@@ -11,17 +11,12 @@ import { Capsule } from 'three/examples/jsm/math/Capsule.js';
 import { Octree } from 'three/examples/jsm/math/Octree.js';
 import { Player } from './player.js';
 import { NPC} from './npc.js';
+import { Population } from './geneticAlgorithm.js';
 // Checking Changes
 //-----GLOBAL VARIABLES FOR IMPORT FUNCTIONS-----//
 const keyStates = {}; // Object to store key states
 let mouseTime = 0;
 const STEPS_PER_FRAME = 3;
-//const playerVelocity = new THREE.Vector3();
-//const playerDirection = new THREE.Vector3();
-//let playerOnFloor = { onFloor: false };
-//let playerTimeSurvived = 0; // For fitness evaluation
-//let playerJumpFrequency = 0; // For fitness evaluation
-//let playerTurnSpeed = 0; // For fitness evaluation
 const GRAVITY = 30;
 const NUM_SPHERES = 10;
 const SPHERE_RADIUS = 0.2; // Radius of sphere collider
@@ -35,11 +30,34 @@ const NUM_TARGETS = 10;
 const TARGET_RADIUS = 0.5;
 const targets = [];
 let score = {counter: 0, npcCounter: 0}; // Initialize score counters
-const playerCollider = new Capsule( new THREE.Vector3( 0, 0.35, 0 ), new THREE.Vector3( 0, 1, 0 ), 0.35 );
+//const playerCollider = new Capsule( new THREE.Vector3( 0, 0.35, 0 ), new THREE.Vector3( 0, 1, 0 ), 0.35 );
 const worldOctree = new Octree(); // Create a new Octree for the world
 const vector1 = new THREE.Vector3(); // Vector for collision detection
 const vector2 = new THREE.Vector3(); // Vector for collision detection
 const vector3 = new THREE.Vector3(); // Vector for collision detection
+// New Globals for Rounds and Metrics Collection
+let currentRound = 1;
+const MAX_ROUNDS = 3;
+let roundsComplete = 0;
+let roundRunning = false;
+let roundMetrics = [];
+let playerStats = {
+    timeSurvived: 0,
+    jumpCount: 0,
+    turnAmount: 0,
+    score: 0
+};
+let npcStats = {
+    timeSurvived: 0,
+    targetsHit: 0,
+    safeFrames: 0,
+    totalFrames: 0,
+    actionLatencies: [],
+    jumpCount: 0,
+    turnAmount: 0
+};
+let generationalPopulation = new Population(5);
+let currentGenomeIndex = 0;
 //-----END GLOBAL VARIABLES-----//
 
 //-----SETUP-----//
@@ -386,18 +404,120 @@ startButton.addEventListener('click', () => {
     backgroundMusic.play(); // Start the background music
     clock.start(); // Start the clock for timing
     startTimer(); // Start the timer
+    const genome = generationalPopulation.genomes[currentGenomeIndex];
+    npc.behavior = genome;
+    console.log("NPC starting behavior based on current randomly generated genome: ", npc.behavior);
     animate(); // Start the game loop
 });
 //-----END START GAME-----//
 
+// New function for round state logic: start, end, reset
+function startRound() {
+    const genome = generationalPopulation.genomes[currentGenomeIndex];
+    npc.behavior = { genome };
+    console.log("NPC starting behavior based on current randomly generated genome: ", npc.behavior);
+    //resetRoundState();
+    roundRunning = true;
+}
+function endRound() {
+    roundRunning = false;
+    roundMetrics.push({
+        round: currentRound,
+        player: {
+            timeSurvived: playerStats.timeSurvived,
+            jumpFrequency: playerStats.jumpCount / playerStats.timeSurvived,
+            turnSpeed: playerStats.turnAmount / playerStats.timeSurvived,
+            score: score.counter
+        },
+        npc: {
+            timeSurvived: npcStats.timeSurvived,
+            targetsHit: npcStats.targetsHit,
+            framesSafeDistance: npcStats.safeFrames,
+            totalFrames: npcStats.totalFrames,
+            avgActionLatency: npcStats.actionLatencies.length
+            ? npcStats.actionLatencies.reduce((a,b)=>a+b)/npcStats.actionLatencies.length
+            : 0,
+            measuredJumpFrequency: npcStats.jumpCount / npcStats.timeSurvived,
+            turnSpeed: npcStats.turnAmount / npcStats.timeSurvived
+        }
+    });
+
+    currentRound += 1;
+    roundsComplete += 1;
+
+    if (currentRound <= MAX_ROUNDS) {
+        resetRound();
+        startRound();
+    } else {
+        completeGeneration();
+        endGame();
+    }
+}
+function resetRound() {
+    player.collider.start.set(0,0.35,0);
+    player.collider.end.set(0,1,0);
+    player.velocity.set(0,0,0);
+    npc.collider.start.set(0.6,0.35,0.6);
+    npc.collider.end.set(0.6,1,0.6);
+    npc.velocity.set(0,0,0);
+    score.counter = 0;
+    score.npcCounter = 0;
+    timeRemaining = 180;
+    if (timerInterval) clearInterval(timerInterval);
+    startTimer();
+    positionEnemies();
+    positionTargets();
+}
+// Function to complete one generation once three rounds are played
+function completeGeneration() {
+  const fitness = generationalPopulation.evaluateFitness(roundMetrics);
+  generationalPopulation.evolveGeneration();
+  currentGenomeIndex = (currentGenomeIndex + 1) % generationalPopulation.genomes.length;
+  currentRound = 1;
+  roundMetrics = [];
+  resetRoundForNext();
+  startRound();
+}
+function collectLiveMetrics() {
+    // Increment Player Stats from Player object
+    playerStats.timeSurvived += deltaTime;
+    playerStats.jumpCount += player.jumpCount;
+    playerStats.turnAmount += Math.abs(camera.rotation.y - lastCameraY);
+    lastCameraY = camera.rotation.y;
+    // Increment NPC Stats from NPC object
+    npcStats.timeSurvived += deltaTime;
+    npcStats.targetsHit = npc.targetsHit;
+    npcStats.totalFrames += 1;
+    npcStats.framesSafeDistance += 1;
+    npcStats.actionLatencies = npc.actionLatencies;
+    if (npc.lastActionLatency != null) {
+        npcStats.actionLatencies.push(npc.lastActionLatency);
+        npc.lastActionLatency = null;
+    }
+    //return {playerStats, npcStats}
+}
+//function isNpcFarFromAllEnemies(npc, enemies, minDist) {
+  //return enemies.every(e => npc.getCenter().distanceTo(e.collider.center) >= minDist);
+//}
 //-----GAME ANIMATION LOOP-----//
 let animationFrameId; // Global variable to store the animation frame ID
+let lastCameraY = 0;
 function animate() {
+    if(roundRunning) {
+        console.log("Testing that game does not start unless round is running!");
+        return;
+    }
     console.log("Animation loop running...");
     animationFrameId = requestAnimationFrame(animate); // Store the frame ID
     animatePoints(points);
     console.log("Snowflakes generated!");
     const deltaTime = Math.min( 0.05, clock.getDelta() ) / STEPS_PER_FRAME;
+    // Collect Live Metrics
+    /* 
+    if (roundRunning) {
+        collectLiveMetrics();
+    }
+    */
     // we look for collisions in substeps to mitigate the risk of
     // an object traversing another too quickly for detection.
     for ( let i = 0; i < STEPS_PER_FRAME; i ++ ) {
@@ -415,6 +535,11 @@ function animate() {
 };
 //-----END GAME ANIMATION LOOP-----//
 
+//-----ROUND LOST-----//
+
+
+
+//-----END ROUND LOST-----//
 //-----GAME OVER-----//
 export function endGame() {
     // Stop The Animation Loop
