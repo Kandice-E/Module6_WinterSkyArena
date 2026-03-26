@@ -134,6 +134,7 @@ function checkForEnemyCollisions(npcCollider, enemies, camera, player) {
             endGame(); // Call the game-over function
             // Future update could decrement npc number of lives
             // and end game once lives equal zero.
+            
             break;
         }
         if (distance2 < combinedRadius2) {

@@ -227,12 +227,6 @@ scene.add(points);
 //-----ADD SCORE DISPLAY-----//
 const scoreDisplay = document.createElement('div');
 scoreDisplay.id = 'score'; // Add an ID for easy access
-scoreDisplay.style.position = 'absolute';
-scoreDisplay.style.top = '10px';
-scoreDisplay.style.right = '10px';
-scoreDisplay.style.color = 'white';
-scoreDisplay.style.fontSize = '36px';
-scoreDisplay.style.fontWeight = 'bold';
 scoreDisplay.innerText = `Player Score: ${score.counter} NPC Score: ${score.npcCounter}`; // Initial score display
 document.body.appendChild(scoreDisplay);
 // Update Score Display Function
@@ -252,12 +246,6 @@ export function updateScoreDisplay(score) {
 //-----ADD TIMER-----//
 const timerDisplay = document.createElement('div');
 timerDisplay.id = 'timer';
-timerDisplay.style.position = 'absolute';
-timerDisplay.style.top = '60px';
-timerDisplay.style.right = '10px';
-timerDisplay.style.color = 'white';
-timerDisplay.style.fontSize = '36px';
-timerDisplay.style.fontWeight = 'bold';
 timerDisplay.innerText = '03:00'; // Initial timer value
 document.body.appendChild(timerDisplay);
 let timerInterval; // Variable to store the interval ID
@@ -285,11 +273,9 @@ backgroundMusic.src = './assets/Gemtracks-Smurf-Speed.mp3'; // Path to your audi
 backgroundMusic.loop = true; // Loop the music
 backgroundMusic.volume = 0.15; // Set the volume (0.0 to 1.0)
 const muteButton = document.createElement('button');
+muteButton.id = 'mute-button';
 muteButton.innerText = 'Mute';
-muteButton.style.position = 'absolute';
-muteButton.style.top = `${stats.dom.offsetHeight + 10}px`; // Position it just below the FPS counter
-muteButton.style.left = '10px';
-muteButton.style.zIndex = '100';
+//console.log("Amount to offset mute button: >>>>>>>", stats.dom.offsetHeight + 10);// Position it just below the FPS counter
 document.body.appendChild(muteButton);
 let isMuted = false;
 muteButton.addEventListener('click', () => {
@@ -303,18 +289,6 @@ muteButton.addEventListener('click', () => {
 const guideButton = document.createElement('button');
 guideButton.id = 'guide-button';
 guideButton.innerText = 'Game Guide';
-guideButton.style.position = 'absolute';
-guideButton.style.bottom = '10px';
-guideButton.style.right = '10px';
-guideButton.style.padding = '10px 20px';
-guideButton.style.fontSize = '16px';
-guideButton.style.cursor = 'pointer';
-guideButton.style.border = 'none';
-guideButton.style.borderRadius = '5px';
-guideButton.style.backgroundColor = '#007bff';
-guideButton.style.color = 'white';
-guideButton.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
-guideButton.style.transition = 'background-color 0.3s';
 guideButton.addEventListener('mouseover', () => {
     guideButton.style.backgroundColor = '#0056b3';
 });
@@ -332,57 +306,26 @@ eventListeners(mouseTime, keyStates, camera, spheres, sphereIdx, player);
 // Create The Start Screen Overlay
 const startScreen = document.createElement('div');
 startScreen.id = 'start-screen';
-startScreen.style.position = 'absolute';
-startScreen.style.top = '0';
-startScreen.style.left = '0';
-startScreen.style.width = '100%';
-startScreen.style.height = '100%';
-startScreen.style.backgroundImage = 'url("./assets/WinterSkyArena2.png")';
-startScreen.style.backgroundSize = 'cover'; // Ensures the image covers the entire screen
-startScreen.style.backgroundPosition = 'center'; // Centers the image
-startScreen.style.backgroundRepeat = 'no-repeat'; // Prevents the image from repeating
-startScreen.style.display = 'flex';
-startScreen.style.flexDirection = 'column';
-startScreen.style.justifyContent = 'center';
-startScreen.style.alignItems = 'center';
-startScreen.style.color = 'white';
-startScreen.style.fontSize = '48px';
-startScreen.style.zIndex = '10';
 // Add A Title
 const title = document.createElement('div');
+title.id = 'title';
 title.innerText = 'Welcome to Winter Sky Arena!';
-title.style.marginBottom = '20px';
-title.style.fontSize = '64px';
-title.style.textAlign = 'center';
 startScreen.appendChild(title);
 // Add a New Paragraph Between Title and Start Button
 const description = document.createElement('div');
+description.id = 'game-description';
 description.innerText = 'Prepare yourself for an exciting adventure!\n\nYour mission is to throw snowballs at the GREEN targets while avoiding the RED enemies.\n\nUse your skills to score points and survive!';
-description.style.marginBottom = '20px';
-description.style.textAlign = 'center';
-description.style.fontSize = '32px';
 startScreen.appendChild(description);
 // Add A Start Button
 const startButton = document.createElement('button');
 startButton.id = 'start-button';
 startButton.innerText = 'Start Game';
-startButton.style.padding = '10px 20px';
-startButton.style.fontSize = '24px';
-startButton.style.cursor = 'pointer';
-startButton.style.border = 'none';
-startButton.style.borderRadius = '5px';
-startButton.style.backgroundColor = '#28a745';
-startButton.style.color = 'white';
-startButton.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
-startButton.style.transition = 'background-color 0.3s';
 startScreen.appendChild(startButton);
 startScreen.appendChild(guideButton); // Add the guide button to the start screen
 // Move Game Key Controls Below Start Button
 const controlsInfo = document.createElement('div');
+controlsInfo.id = 'controls-info';
 controlsInfo.innerText = 'Controls: \nW - Move Forward\nA - Move Left\nS - Move Backward\nD - Move Right\nSpace - Jump\nUse Mouse to Look Around\nLeft Click to Throw Ball from Center of Screen\nHold Left Click to Throw Ball Further';
-controlsInfo.style.marginTop = '20px'; // Add spacing above the controls
-controlsInfo.style.textAlign = 'center';
-controlsInfo.style.fontSize = '18px';
 startScreen.appendChild(controlsInfo);
 // Append The Start Screen To The Document Body
 document.body.appendChild(startScreen);
@@ -475,6 +418,7 @@ function resetRound() {
     positionTargets();
 }
 // Function to complete one generation once three rounds are played
+// FIX THIS >>>>>>>> need to figure out whether to evaluate fitness on population object or individual genomes in the population
 function completeGeneration() {
   const fitness = generationalPopulation.evaluateFitness(roundMetrics);
   generationalPopulation.evolveGeneration();
@@ -552,50 +496,27 @@ export function endGame() {
     cancelAnimationFrame(animationFrameId); // Stop the animation loop
     backgroundMusic.pause(); // Stop the background music
     backgroundMusic.currentTime = 0; // Reset the music to the beginning
+    // Stop/Reset the Timer
+    clearInterval(timerInterval);
     // Reset The Clock
     clock.stop();
     // Create A Game-Over Overlay
     const gameOverScreen = document.createElement('div');
     gameOverScreen.id = 'game-over-screen';
-    gameOverScreen.style.position = 'absolute';
-    gameOverScreen.style.top = '0';
-    gameOverScreen.style.left = '0';
-    gameOverScreen.style.width = '100%';
-    gameOverScreen.style.height = '100%';
-    gameOverScreen.style.backgroundImage = 'url("./assets/WinterSkyArena1.png")';
-    gameOverScreen.style.backgroundSize = 'cover'; // Ensures the image covers the entire screen
-    gameOverScreen.style.backgroundPosition = 'center'; // Centers the image
-    gameOverScreen.style.backgroundRepeat = 'no-repeat'; // Prevents the image from repeating
-    gameOverScreen.style.display = 'flex';
-    gameOverScreen.style.flexDirection = 'column';
-    gameOverScreen.style.justifyContent = 'center';
-    gameOverScreen.style.alignItems = 'center';
-    gameOverScreen.style.color = 'white';
-    gameOverScreen.style.fontSize = '48px';
-    gameOverScreen.style.zIndex = '10';
     // Add A "Game Over" Message
     const gameOverMessage = document.createElement('div');
+    gameOverMessage.id = 'game-over-message';
     gameOverMessage.innerText = 'Game Over!';
-    gameOverMessage.style.marginBottom = '20px';
     gameOverScreen.appendChild(gameOverMessage);
     // Display The Final Score
     const finalScore = document.createElement('div');
+    finalScore.id = 'final-score';
     finalScore.innerText = `Final Score: ${score.counter} | NPC Score: ${score.npcCounter}`;
-    finalScore.style.marginBottom = '20px';
     gameOverScreen.appendChild(finalScore);
     // Add A "Restart Game" Button
     const restartButton = document.createElement('button');
     restartButton.id = 'restart-button';
     restartButton.innerText = 'Restart Game';
-    restartButton.style.padding = '10px 20px';
-    restartButton.style.fontSize = '24px';
-    restartButton.style.cursor = 'pointer';
-    restartButton.style.border = 'none';
-    restartButton.style.borderRadius = '5px';
-    restartButton.style.backgroundColor = '#28a745';
-    restartButton.style.color = 'white';
-    restartButton.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
-    restartButton.style.transition = 'background-color 0.3s';
     gameOverScreen.appendChild(restartButton);
     // Append The Game-Over Screen To The Document Body
     document.body.appendChild(gameOverScreen);
