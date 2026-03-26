@@ -43,6 +43,7 @@ export class NPC {
         this.velocity = new THREE.Vector3();
         this.onFloor = false;
         this.targetIndex = -1;
+        this.lastTargetIndex = 0;
         this.lastBallIndex = 0;
         this.lastJump = 0;
         this.lastThrow = 0;
@@ -52,6 +53,7 @@ export class NPC {
         this.targetsHit = 0; // For fitness evaluation
         this.framesSafeDistance = 0; // For fitness evaluation
         this.totalFrames = 0; // For fitness evaluation
+        this.framesSinceTargetDetection = 0; // For Fitness evaluation
         this.actionLatencies = []; // For fitness evaluation
         this.lastActionLatency = 0;
         this.measuredJumpFrequency = 0; // For fitness evaluation
@@ -61,11 +63,14 @@ export class NPC {
         return out.copy(this.collider.start).add(this.collider.end).multiplyScalar(0.5);
     }
     update(delta, worldOctree, targets, enemies, spawnBallFn, time, GRAVITY = 30) {
+        this.totalFrames += 1;
+        this.framesSinceTargetDetection += 1;
         const center = this.getCenter();
         // Select target within radius
         if (this.targetIndex < 0 || !targets[this.targetIndex] ||
             center.distanceTo(targets[this.targetIndex].collider.center) > this.behavior.targetSelectionRadius) {
             this.targetIndex = this.findNearestTarget(center, targets, this.behavior.targetSelectionRadius);
+            this.lastTargetIndex = this.targetIndex;
         }
         // Calculate movement direction
         let moveDir = new THREE.Vector3();
@@ -148,6 +153,11 @@ export class NPC {
             const velocity = dir.multiplyScalar(this.behavior.ballThrowPower);
             //if (spawnBallFn) spawnBallFn(spawnPos, velocity);
             this.lastBallIndex = spawnBallFn ? spawnBallFn(spawnPos, velocity) : this.lastBallIndex; // Store index of thrown ball for potential tracking
+        }
+        if (this.targetIndex != this.lastTargetIndex) {
+            this.lastActionLatency = this.framesSinceTargetDetected;
+            this.actionLatencies.push(this.lastActionLatency);
+            this.framesSinceTargetDetected = 0;
         }
     }
     isNpcFarFromAllEnemies(enemies) {

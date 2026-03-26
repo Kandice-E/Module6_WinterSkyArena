@@ -37,7 +37,7 @@ const vector2 = new THREE.Vector3(); // Vector for collision detection
 const vector3 = new THREE.Vector3(); // Vector for collision detection
 // New Globals for Rounds and Metrics Collection
 let currentRound = 1;
-const MAX_ROUNDS = 3;
+const MAX_ROUNDS = 5;
 let roundsComplete = 0;
 let roundRunning = false;
 let roundMetrics = [];
@@ -54,7 +54,8 @@ let npcStats = {
     totalFrames: 0,
     actionLatencies: [],
     jumpCount: 0,
-    turnAmount: 0
+    turnAmount: 0,
+    score: 0
 };
 let generationalPopulation = new Population(5);
 let currentGenomeIndex = 0;
@@ -414,7 +415,7 @@ startButton.addEventListener('click', () => {
 // New function for round state logic: start, end, reset
 function startRound() {
     const genome = generationalPopulation.genomes[currentGenomeIndex];
-    npc.behavior = { genome };
+    npc.behavior = genome;
     console.log("NPC starting behavior based on current randomly generated genome: ", npc.behavior);
     //resetRoundState();
     roundRunning = true;
@@ -438,7 +439,8 @@ function endRound() {
             ? npcStats.actionLatencies.reduce((a,b)=>a+b)/npcStats.actionLatencies.length
             : 0,
             measuredJumpFrequency: npcStats.jumpCount / npcStats.timeSurvived,
-            turnSpeed: npcStats.turnAmount / npcStats.timeSurvived
+            turnSpeed: npcStats.turnAmount / npcStats.timeSurvived,
+            score: score.npcCounter
         }
     });
 
@@ -460,6 +462,10 @@ function resetRound() {
     npc.collider.start.set(0.6,0.35,0.6);
     npc.collider.end.set(0.6,1,0.6);
     npc.velocity.set(0,0,0);
+    npc.framesSinceTargetDetected = 0;
+    npc.lastActionLatency = 0;
+    npc.actionLatencies.length = 0;
+    npc.totalFrames = 0;
     score.counter = 0;
     score.npcCounter = 0;
     timeRemaining = 180;

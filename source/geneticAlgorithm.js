@@ -36,8 +36,39 @@ export class Genome {
             fitness -= Math.abs(r.npc.measuredJumpFrequency - 1.5) * 2;
         });
         return fitness;*/
-        let fitness = 0;
-        return fitness;
+        const competitiveWeight = 0.3;
+        const closenessWeight = 0.25;
+        const adaptabilityWeight = 0.20;
+        const behavioralWeight = 0.15;
+        const responsivenessWeight = 0.10;
+        // FITNESS COMPONENT 1: [0, 1]
+        const competitiveRatio = Math.min(npcStats.score / 
+            Math.max(1, playerStats.score), 1.5);
+        const competitiveTerm = competitiveRatio / 1.5;
+        // FITNESS COMPONENT 2: [0, 1]
+        const scoreDiff = Math.abs(npcStats.score - playerStats.score);
+        const closenessTerm = Math.max(0, (100 - scoreDiff * 2) / 100);
+        // FITNESS COMPONENT 3: [0, 1]
+        const scoreRatio = 0.5 * (npcStats.score / npcStats.timeSurvived) + 0.5 * (npcStats.score / (npcStats.score + playerStats.score));
+        const scoreRatioExpec = 0.5 * (playerStats.score / playerStats.timeSurvived) + 0.5 * (playerStats.score / (playerStats.score + npcStats.score)); 
+        let adaptabilityTerm = Math.max(0, (100 - Math.abs((scoreRatio * 100) - (scoreRatioExpec * 100))) / 100);
+        // FITNESS COMPONENT 4: [0, 1]
+        const accuracy =  (npcStats.targetsHit / Math.max(1, npcStats.ballsThrown)) * 100;
+        const avoidance = (npcStats.framesSafeDistance / npcStats.totalFrames) * 100;
+        let behavioralTerm = (accuracy + avoidance) / 200;
+        // FITNESS COMPONENT 5: [0, 1]
+        const latencyScore = Math.max(0, 100 - npcStats.avgActionLatency * 10);
+        const jumpScore = Math.max(0, 100 - Math.abs(npcStats.measuredJumpFrequency - playerStats.jumpFrequency));
+        const turnScore = Math.min(0, 100 - Math.abs(npcStats.turnSpeed - playerStats.turnSpeed) * 5);
+        let responsivenessTerm = (latencyScore + jumpScore + turnScore) / 300;
+        // FINAL WEIGHTED FITNESS: [0, 5]
+        const fitness = 
+        (competitiveWeight * competitiveTerm) +
+        (closenessWeight * closenessTerm) +
+        (adaptabilityWeight * adaptabilityTerm) +
+        (behavioralWeight * behavioralTerm) +
+        (responsivenessWeight * responsivenessTerm);
+        return fitness * 5; // Range: [0, 5]
     }
 }
 
@@ -68,13 +99,39 @@ export class Population {
         return child;
     }
     evaluateFitness(roundMetrics) {
-        let fitness = 0;
-        //const npcCenter = npc.getCenter();
-        // Example fitness calculation (replace with actual logic)
-        //fitness += npc.timeSurvived;
-        //fitness += npc.targetsHit * 10;
-        //fitness += npc.framesSafeDistance;
-        return fitness;
+        const competitiveWeight = 0.3;
+        const closenessWeight = 0.25;
+        const adaptabilityWeight = 0.20;
+        const behavioralWeight = 0.15;
+        const responsivenessWeight = 0.10;
+        // FITNESS COMPONENT 1: [0, 1]
+        const competitiveRatio = Math.min(npcStats.score / 
+            Math.max(1, playerStats.score), 1.5);
+        const competitiveTerm = competitiveRatio / 1.5;
+        // FITNESS COMPONENT 2: [0, 1]
+        const scoreDiff = Math.abs(npcStats.score - playerStats.score);
+        const closenessTerm = Math.max(0, (100 - scoreDiff * 2) / 100);
+        // FITNESS COMPONENT 3: [0, 1]
+        const scoreRatio = 0.5 * (npcStats.score / npcStats.timeSurvived) + 0.5 * (npcStats.score / (npcStats.score + playerStats.score));
+        const scoreRatioExpec = 0.5 * (playerStats.score / playerStats.timeSurvived) + 0.5 * (playerStats.score / (playerStats.score + npcStats.score)); 
+        let adaptabilityTerm = Math.max(0, (100 - Math.abs((scoreRatio * 100) - (scoreRatioExpec * 100))) / 100);
+        // FITNESS COMPONENT 4: [0, 1]
+        const accuracy =  (npcStats.targetsHit / Math.max(1, npcStats.ballsThrown)) * 100;
+        const avoidance = (npcStats.framesSafeDistance / npcStats.totalFrames) * 100;
+        let behavioralTerm = (accuracy + avoidance) / 200;
+        // FITNESS COMPONENT 5: [0, 1]
+        const latencyScore = Math.max(0, 100 - npcStats.avgActionLatency * 10);
+        const jumpScore = Math.max(0, 100 - Math.abs(npcStats.measuredJumpFrequency - playerStats.jumpFrequency));
+        const turnScore = Math.min(0, 100 - Math.abs(npcStats.turnSpeed - playerStats.turnSpeed) * 5);
+        let responsivenessTerm = (latencyScore + jumpScore + turnScore) / 300;
+        // FINAL WEIGHTED FITNESS: [0, 5]
+        const fitness = 
+        (competitiveWeight * competitiveTerm) +
+        (closenessWeight * closenessTerm) +
+        (adaptabilityWeight * adaptabilityTerm) +
+        (behavioralWeight * behavioralTerm) +
+        (responsivenessWeight * responsivenessTerm);
+        return fitness * 5; // Range: [0, 5]
     }
     selectParents() {
         // Implement selection logic (e.g., tournament selection, roulette wheel)
