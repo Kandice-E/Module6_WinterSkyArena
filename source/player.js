@@ -10,6 +10,7 @@ export class Player {
         this.jumpFrequency = 1,
         this.jumpCount = 1,
         this.turnSpeed = 1,
+        this.score = 0,
         this.collider = new Capsule(
         new THREE.Vector3( 0.1, 0.35, 0.1 ),
         new THREE.Vector3( 0.1, 1, 0.1 ),

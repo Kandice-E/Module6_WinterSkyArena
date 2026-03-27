@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { endGame, updateScoreDisplay } from './main.js';
+import { endGame, updateScoreDisplay, endRound } from './main.js';
 
 function updatePlayer(deltaTime, worldOctree, GRAVITY, camera, player) {
     let damping = Math.exp( - 4 * deltaTime ) - 1;
@@ -134,6 +134,10 @@ function checkForEnemyCollisions(npcCollider, enemies, camera, player) {
             endGame(); // Call the game-over function
             // Future update could decrement npc number of lives
             // and end game once lives equal zero.
+
+            //-----UNCOMMENT THIS WHEN READY TO USE ROUND BASED GAMEPLAY-----//
+            //console.log("NPC collided with an enemy! Restarting round.");
+            //endRound();
             
             break;
         }
@@ -147,6 +151,10 @@ function checkForEnemyCollisions(npcCollider, enemies, camera, player) {
             endGame(); // Call the game-over function
             // Future update could decrement npc number of lives
             // and end game once lives equal zero.
+
+            //-----UNCOMMENT THIS WHEN READY TO USE ROUND BASED GAMEPLAY-----//
+            //console.log("Player collided with an enemy! Restarting round.");
+            //endRound();
             break;
         }
     }
@@ -165,12 +173,14 @@ function checkBallTargetCollisions(spheres, targets, score, npc, worldOctree) {
                 else if (target === targets[npc.targetIndex] && npc.lastBallIndex !== spheres.indexOf(sphere)) {
                     console.log("Player hit a target!");
                     score.counter += 1;
+                    player.score += 1;
                     // Reset NPC Target Index To Force It To Select A New Target
                     npc.targetIndex = -1;
                 }
                 else {
                     console.log("Player hit a target!");
                     score.counter += 1;
+                    player.score += 1;
                 }
                 updateScoreDisplay(score); // Update the score display
                 // Move Target To A New Random Position

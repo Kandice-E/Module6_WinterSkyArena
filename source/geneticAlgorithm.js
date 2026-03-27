@@ -97,7 +97,8 @@ export class Population {
         child.enemyAvoidanceDistance = Math.random() < 0.5 ? parentA.enemyAvoidanceDistance : parentB.enemyAvoidanceDistance;
         child.movementSpeedMultiplier = Math.random() < 0.5 ? parentA.movementSpeedMultiplier : parentB.movementSpeedMultiplier;
         return child;
-    }
+    } //-----START HERE WITH UPDATES-----//
+    //-----Refactor fitness evaluation to be done on each genome in the population-----//
     evaluateFitness(roundMetrics) {
         const competitiveWeight = 0.3;
         const closenessWeight = 0.25;

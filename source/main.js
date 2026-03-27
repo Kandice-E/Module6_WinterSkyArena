@@ -36,9 +36,14 @@ const vector1 = new THREE.Vector3(); // Vector for collision detection
 const vector2 = new THREE.Vector3(); // Vector for collision detection
 const vector3 = new THREE.Vector3(); // Vector for collision detection
 // New Globals for Rounds and Metrics Collection
+let generationsCompleted = 0;
+let numGenomesTested = 0;
 let currentRound = 1;
-const MAX_ROUNDS = 5;
+const MAX_ROUNDS = 3;
+const GENOMES_PER_ROUND = 2;
+let genomeSlotInRound = 0;
 let roundsComplete = 0;
+const genomeTestWindow = 30;
 let roundRunning = false;
 let roundMetrics = [];
 let playerStats = {
@@ -57,7 +62,7 @@ let npcStats = {
     turnAmount: 0,
     score: 0
 };
-let generationalPopulation = new Population(5);
+let generationalPopulation = new Population(6);
 let currentGenomeIndex = 0;
 //-----END GLOBAL VARIABLES-----//
 
@@ -266,6 +271,27 @@ function startTimer() {
 }
 //-----END ADD TIMER-----//
 
+//-----CREATE ROUND COUNTDOWN-----//
+const roundCountdown = document.createElement('div');
+roundCountdown.id = 'round-countdown';
+document.body.appendChild(roundCountdown);
+function showRoundCountdown(seconds, onFinish) {
+    roundCountdown.style.display = FlakesTexture;
+    let value = seconds;
+    roundCountdown.textContent = `Round ${currentRound} in ${value}`;
+    const timerId = setInterval(() => {
+        value -= 1;
+        if (value > 0) {
+            roundCountdown.textContent = `Round ${currentRound} in ${value}`;
+        } else {
+            clearInterval(timerId);
+            roundCountdown.style.display = 'none';
+            onFinish();
+        }
+    }, 1000);
+}
+//-----END CREATE ROUND COUNTDOWN-----//
+
 //-----ADD MUSIC-----//
 // Create an audio element for background music
 const backgroundMusic = document.createElement('audio');
@@ -348,10 +374,12 @@ startButton.addEventListener('click', () => {
     backgroundMusic.play(); // Start the background music
     clock.start(); // Start the clock for timing
     startTimer(); // Start the timer
+    //REMOVE ALL LINE BELOW BEFORE TRANSITIONING TO ROUND LOGIC!!!!!!!!!!
     const genome = generationalPopulation.genomes[currentGenomeIndex];
     npc.behavior = genome;
     console.log("NPC starting behavior based on current randomly generated genome: ", npc.behavior);
     animate(); // Start the game loop
+    //REMOVE THIS CALL TO ANIMATE WHEN CHANGING LOGIC TO ROUNDS!!!!!
 });
 //-----END START GAME-----//
 
@@ -362,16 +390,18 @@ function startRound() {
     console.log("NPC starting behavior based on current randomly generated genome: ", npc.behavior);
     //resetRoundState();
     roundRunning = true;
+    animate();
 }
-function endRound() {
+export function endRound() {
     roundRunning = false;
     roundMetrics.push({
-        round: currentRound,
+        round: currentRound,// Consider removing this since metrics should only be pushed once a genome is done being tested
+        genomeIndex: currentGenomeIndex,
         player: {
             timeSurvived: playerStats.timeSurvived,
             jumpFrequency: playerStats.jumpCount / playerStats.timeSurvived,
             turnSpeed: playerStats.turnAmount / playerStats.timeSurvived,
-            score: score.counter
+            score: playerStats.score
         },
         npc: {
             timeSurvived: npcStats.timeSurvived,
@@ -383,32 +413,38 @@ function endRound() {
             : 0,
             measuredJumpFrequency: npcStats.jumpCount / npcStats.timeSurvived,
             turnSpeed: npcStats.turnAmount / npcStats.timeSurvived,
-            score: score.npcCounter
+            score: npcStats.score
         }
     });
-
-    currentRound += 1;
-    roundsComplete += 1;
-
-    if (currentRound <= MAX_ROUNDS) {
-        resetRound();
+    //currentRound += 1;
+    //roundsComplete += 1;
+    genomeSlotInRound += 1;
+    if (genomeSlotInRound < GENOMES_PER_ROUND) {
+        // More genomes in round to be tested
+        currentGenomeIndex += 1;
+        resetMetricsForNextGenome();
+        resetNpcPosition();
         startRound();
+    }
+    if (currentRound <= MAX_ROUNDS) {
+        currentGenomeIndex += 1;
+        resetMetricsForNextGenome();
+        showRoundCountdown(3, () => {
+            resetRound();
+            startRound();
+        })
+        //resetRound(); REMOVE AFTER DONE REFACTORING GAME START AND END LOGIC
+        //startRound();
     } else {
         completeGeneration();
         endGame();
     }
 }
 function resetRound() {
+    resetNpcPosition();
     player.collider.start.set(0,0.35,0);
     player.collider.end.set(0,1,0);
     player.velocity.set(0,0,0);
-    npc.collider.start.set(0.6,0.35,0.6);
-    npc.collider.end.set(0.6,1,0.6);
-    npc.velocity.set(0,0,0);
-    npc.framesSinceTargetDetected = 0;
-    npc.lastActionLatency = 0;
-    npc.actionLatencies.length = 0;
-    npc.totalFrames = 0;
     score.counter = 0;
     score.npcCounter = 0;
     timeRemaining = 180;
@@ -417,10 +453,48 @@ function resetRound() {
     positionEnemies();
     positionTargets();
 }
+function resetNpcPosition() {
+    npc.collider.start.set(0.6,0.35,0.6);
+    npc.collider.end.set(0.6,1,0.6);
+    npc.velocity.set(0,0,0);
+    npc.framesSinceTargetDetected = 0;
+    npc.lastActionLatency = 0;
+    npc.actionLatencies.length = 0;
+    npc.totalFrames = 0;
+}
+function resetMetricsForNextGenome() {
+    playerStats = {
+        timeSurvived: 0,
+        jumpCount: 0,
+        turnAmount: 0,
+        score: 0
+    };
+    npcStats = {
+        timeSurvived: 0,
+        targetsHit: 0,
+        safeFrames: 0,
+        totalFrames: 0,
+        actionLatencies: [],
+        jumpCount: 0,
+        turnAmount: 0,
+        score: 0
+    };
+}
 // Function to complete one generation once three rounds are played
 // FIX THIS >>>>>>>> need to figure out whether to evaluate fitness on population object or individual genomes in the population
+// BELOW CAN BE REMOVED: this will only be called once after verifying all rounds are done
 function completeGeneration() {
-  const fitness = generationalPopulation.evaluateFitness(roundMetrics);
+    generationsCompleted += 1;
+    numGenomesTested += 6;
+    if (numGenomesTested < generationalPopulation.genomes.length) {
+        //All genomes have not been tested and had metrics collected
+        currentGenomeIndex = (currentGenomeIndex + 1) % generationalPopulation.genomes.length;
+        currentRound = 1;
+        roundMetrics = [];
+        resetRound();
+        startRound();
+    }
+  generationalPopulation.evaluateFitness(roundMetrics);
   generationalPopulation.evolveGeneration();
   currentGenomeIndex = (currentGenomeIndex + 1) % generationalPopulation.genomes.length;
   currentRound = 1;
@@ -433,6 +507,7 @@ function collectLiveMetrics() {
     playerStats.timeSurvived += deltaTime;
     playerStats.jumpCount += player.jumpCount;
     playerStats.turnAmount += Math.abs(camera.rotation.y - lastCameraY);
+    playerStats.score += player.score;
     lastCameraY = camera.rotation.y;
     // Increment NPC Stats from NPC object
     npcStats.timeSurvived += deltaTime;
@@ -440,9 +515,14 @@ function collectLiveMetrics() {
     npcStats.totalFrames += 1;
     npcStats.framesSafeDistance += 1;
     npcStats.actionLatencies = npc.actionLatencies;
+    npcStats.score += npc.score;
     if (npc.lastActionLatency != null) {
         npcStats.actionLatencies.push(npc.lastActionLatency);
         npc.lastActionLatency = null;
+    }
+    // Check for npc testing window limit reached and end game if limit reached before enemy collision is detected
+    if (npcStats.timeSurvived >= genomeTestWindow) {
+        endRound();
     }
     //return {playerStats, npcStats}
 }
@@ -453,10 +533,11 @@ function collectLiveMetrics() {
 let animationFrameId; // Global variable to store the animation frame ID
 let lastCameraY = 0;
 function animate() {
-    if(roundRunning) {
+    //-----UNCOMMENT THIS WHEN READY TO APPLY ROUND BASED GAMEPLAY-----//
+    /*if(!roundRunning) {
         console.log("Testing that game does not start unless round is running!");
         return;
-    }
+    }*/
     console.log("Animation loop running...");
     animationFrameId = requestAnimationFrame(animate); // Store the frame ID
     animatePoints(points);
