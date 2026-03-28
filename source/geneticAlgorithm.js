@@ -18,6 +18,7 @@ export class Genome {
             behavioral: 0,
             responsiveness: 0
         };
+        this.id = 0;
     }
 }
 const GENE_RANGES = {
@@ -33,6 +34,7 @@ export class Population {
         this.genomes = [];
         for (let i = 0; i < size; i++) {
             this.genomes.push(new Genome());
+            this.genomes[i].id = generateUniqueId();
         }
         this.fitnessScores = [];
     }
@@ -255,6 +257,7 @@ export class Population {
         //MUTATE CHILD GENOME
         this.mutate(child);
         //Initialize remaining child genome properties
+        child.id = generateUniqueId();
         child.metrics = null;
         child.fitness = 0;
         child.evaluations = 0;
@@ -274,4 +277,7 @@ function gaussianRandom(mean = 0, stdDev = 1) {
     const u2 = Math.random();
     const z0 = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.Pi * u2);
     return z0 * stdDev + mean;
+}
+function generateUniqueId() {
+    return Math.random().toString(36).substring(2, 10);
 }

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { endGame, updateScoreDisplay, endRound } from './main.js';
+import { endGame, updateScoreDisplay, continueRound } from './main.js';
 
 function updatePlayer(deltaTime, worldOctree, GRAVITY, camera, player) {
     let damping = Math.exp( - 4 * deltaTime ) - 1;
@@ -131,13 +131,14 @@ function checkForEnemyCollisions(npcCollider, enemies, camera, player) {
             npcCollider.start.set( 0, 0.35, 0 );
             npcCollider.end.set( 0, 1, 0 );
             npcCollider.radius = 0.35;
+            
             endGame(); // Call the game-over function
             // Future update could decrement npc number of lives
             // and end game once lives equal zero.
 
             //-----UNCOMMENT THIS WHEN READY TO USE ROUND BASED GAMEPLAY-----//
             //console.log("NPC collided with an enemy! Restarting round.");
-            //endRound();
+            //continueRound();
             
             break;
         }
@@ -154,7 +155,7 @@ function checkForEnemyCollisions(npcCollider, enemies, camera, player) {
 
             //-----UNCOMMENT THIS WHEN READY TO USE ROUND BASED GAMEPLAY-----//
             //console.log("Player collided with an enemy! Restarting round.");
-            //endRound();
+            //continueRound();
             break;
         }
     }

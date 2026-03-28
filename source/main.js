@@ -45,7 +45,13 @@ let genomeSlotInRound = 0;
 let roundsComplete = 0;
 const genomeTestWindow = 30;
 let roundRunning = false;
-let roundMetrics = [];
+let roundMetrics = {
+    round: 0,
+    genomeIndex: 0,
+    player: null,
+    npc: null,
+    genomeId: 0
+};
 let playerStats = {
     timeSurvived: 0,
     jumpCount: 0,
@@ -377,6 +383,7 @@ startButton.addEventListener('click', () => {
     //REMOVE ALL LINE BELOW BEFORE TRANSITIONING TO ROUND LOGIC!!!!!!!!!!
     const genome = generationalPopulation.genomes[currentGenomeIndex];
     npc.behavior = genome;
+    console.log("TESTING GENOME ID STORAGE: ", npc.behavior.id);
     console.log("NPC starting behavior based on current randomly generated genome: ", npc.behavior);
     animate(); // Start the game loop
     //REMOVE THIS CALL TO ANIMATE WHEN CHANGING LOGIC TO ROUNDS!!!!!
@@ -387,13 +394,17 @@ startButton.addEventListener('click', () => {
 function startRound() {
     const genome = generationalPopulation.genomes[currentGenomeIndex];
     npc.behavior = genome;
-    console.log("NPC starting behavior based on current randomly generated genome: ", npc.behavior);
+    console.log("CURRENT NPC BEHAVIOR GENOME BEING TESTED: ", genome);
+    //console.log("NPC starting behavior based on current randomly generated genome: ", npc.behavior);
     //resetRoundState();
     roundRunning = true;
     animate();
 }
 export function endRound() {
-    roundRunning = false;
+    //roundRunning = false;
+    updateMetrics();
+    resetMetricsForNextGenome();
+    
     roundMetrics.push({
         round: currentRound,// Consider removing this since metrics should only be pushed once a genome is done being tested
         genomeIndex: currentGenomeIndex,
@@ -414,10 +425,14 @@ export function endRound() {
             measuredJumpFrequency: npcStats.jumpCount / npcStats.timeSurvived,
             turnSpeed: npcStats.turnAmount / npcStats.timeSurvived,
             score: npcStats.score
-        }
+        },
+        genomeId: npc.behavior.id
     });
     //currentRound += 1;
     //roundsComplete += 1;
+    //THIS CHECK FOR MORE GENOMES TO TEST SHOULD OCCUR IN
+    //COLLECT METRICS DURING GAMEPLAY INSTEAD OF
+    //CALLING END GAME WHICH STOPS THE ANIMATION LOOP
     genomeSlotInRound += 1;
     if (genomeSlotInRound < GENOMES_PER_ROUND) {
         // More genomes in round to be tested
@@ -429,6 +444,8 @@ export function endRound() {
     if (currentRound <= MAX_ROUNDS) {
         currentGenomeIndex += 1;
         resetMetricsForNextGenome();
+        resetNpcPosition();
+        npc.behavior = generationalPopulation[currentGenomeIndex];
         showRoundCountdown(3, () => {
             resetRound();
             startRound();
@@ -439,6 +456,31 @@ export function endRound() {
         completeGeneration();
         endGame();
     }
+}
+function updateMetrics() {
+    roundMetrics.push({
+        round: currentRound,// Consider removing this since metrics should only be pushed once a genome is done being tested
+        genomeIndex: currentGenomeIndex,
+        player: {
+            timeSurvived: playerStats.timeSurvived,
+            jumpFrequency: playerStats.jumpCount / playerStats.timeSurvived,
+            turnSpeed: playerStats.turnAmount / playerStats.timeSurvived,
+            score: playerStats.score
+        },
+        npc: {
+            timeSurvived: npcStats.timeSurvived,
+            targetsHit: npcStats.targetsHit,
+            framesSafeDistance: npcStats.safeFrames,
+            totalFrames: npcStats.totalFrames,
+            avgActionLatency: npcStats.actionLatencies.length
+            ? npcStats.actionLatencies.reduce((a,b)=>a+b)/npcStats.actionLatencies.length
+            : 0,
+            measuredJumpFrequency: npcStats.jumpCount / npcStats.timeSurvived,
+            turnSpeed: npcStats.turnAmount / npcStats.timeSurvived,
+            score: npcStats.score
+        },
+        genomeId: npc.behavior.id
+    });
 }
 function resetRound() {
     resetNpcPosition();
@@ -496,6 +538,8 @@ function completeGeneration() {
     }
   generationalPopulation.evaluateFitness(roundMetrics);
   generationalPopulation.evolveGeneration();
+  //VERIFY IF THIS IS THE CORRECT STARTING INDEX
+  //WHEN PLAYING ANOTHER SESSION
   currentGenomeIndex = (currentGenomeIndex + 1) % generationalPopulation.genomes.length;
   currentRound = 1;
   roundMetrics = [];
@@ -520,11 +564,31 @@ function collectLiveMetrics() {
         npcStats.actionLatencies.push(npc.lastActionLatency);
         npc.lastActionLatency = null;
     }
-    // Check for npc testing window limit reached and end game if limit reached before enemy collision is detected
+    // Check for npc testing window limit reached and 
+    // end game if limit reached before enemy collision
+    // is detected or all round genomes tested
     if (npcStats.timeSurvived >= genomeTestWindow) {
-        endRound();
+        continueRound();
     }
     //return {playerStats, npcStats}
+}
+export function continueRound() {
+    if (genomeSlotInRound < GENOMES_PER_ROUND) {
+            updateMetrics();
+            resetMetricsForNextGenome();
+            resetNpcPosition();
+            currentGenomeIndex += 1;
+            npc.behavior = generationalPopulation[currentGenomeIndex];
+        } else if (currentRound <= MAX_ROUNDS) {
+            endRound();
+        } else {
+            roundRunning = false;
+            completeGeneration();
+            // UPDATE SO THAT THE PLAYER PRESSES CONTINUE
+            // PLAYING BUTTOM TO START ANOTHER SESSION
+            // OR END GAME IF END GAME BUTTON IS PRESSED
+            endGame();
+        }
 }
 //function isNpcFarFromAllEnemies(npc, enemies, minDist) {
   //return enemies.every(e => npc.getCenter().distanceTo(e.collider.center) >= minDist);
