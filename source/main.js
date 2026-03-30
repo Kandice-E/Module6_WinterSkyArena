@@ -260,11 +260,14 @@ const timerDisplay = document.createElement('div');
 timerDisplay.id = 'timer';
 timerDisplay.innerText = '01:15'; // Initial timer value
 document.body.appendChild(timerDisplay);
+let roundStartTime;
 let timerInterval; // Variable to store the interval ID
-let timeRemaining = MAX_ROUND_TIME; // 1.25 minutes in seconds
+//let timeRemaining = MAX_ROUND_TIME; // 1.25 minutes in seconds
 function startTimer() {
+    roundStartTime = performance.now();
     timerInterval = setInterval(() => {
-        timeRemaining--;
+        const timeElapsed = (performance.now() - roundStartTime) / 1000;
+        const timeRemaining = Math.max(0, MAX_ROUND_TIME - timeElapsed);
         const minutes = Math.floor(timeRemaining / 60);
         const seconds = timeRemaining % 60;
         // Update The Timer Display
@@ -275,7 +278,7 @@ function startTimer() {
             continueRound();
             //endGame();
         }
-    }, 1000); // Update every second
+    }, 100); // Update more frequently for accuracy
 }
 //-----END ADD TIMER-----//
 
@@ -565,7 +568,8 @@ function collectLiveMetrics(deltaTime) {
     // Check for npc testing window limit reached and 
     // end game if limit reached before enemy collision
     // is detected or all round genomes tested
-    if (npcStats.timeSurvived >= genomeTestWindow) {
+    console.log("----------COLLECTING LIVE METRICS----------: ", npcStats.timeSurvived);
+    if (npcStats.timeSurvived >= genomeTestWindow) {//-----START HERE: This is not being called at all so check all references---------------//
         continueRound();
     }
     //return {playerStats, npcStats}
@@ -576,8 +580,11 @@ export function continueRound() {
             genomeSlotInRound += 1;
             currentGenomeIndex += 1;
             resetMetricsForNextGenome();
-            resetNpcPosition();
+            resetNpcPosition();//-----CONTINUE HERE AFTER ABOVE: After full round time ends, continueRound is called, but somewhere the genome is 
+            //becoming undefined. Start by verifying where currentGenomeIndex should be incremented and if it is done correctly.-----//
+            console.log("Previous Genome: ", generationalPopulation[currentGenomeIndex]);
             npc.behavior = generationalPopulation[currentGenomeIndex];
+            console.log("Current Genome After Updating to Second Test Genome: ", generationalPopulation[currentGenomeIndex]);
         } else if (currentRound <= MAX_ROUNDS) {
             endRound();
         } else {
