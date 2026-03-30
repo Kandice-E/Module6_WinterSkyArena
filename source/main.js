@@ -37,21 +37,17 @@ const vector2 = new THREE.Vector3(); // Vector for collision detection
 const vector3 = new THREE.Vector3(); // Vector for collision detection
 // New Globals for Rounds and Metrics Collection
 let generationsCompleted = 0;
+const MAX_GENERATIONS = 1;
 let numGenomesTested = 0;
 let currentRound = 1;
 const MAX_ROUNDS = 3;
 const GENOMES_PER_ROUND = 2;
 let genomeSlotInRound = 0;
 let roundsComplete = 0;
+const MAX_ROUND_TIME = 75;
 const genomeTestWindow = 30;
 let roundRunning = false;
-let roundMetrics = {
-    round: 0,
-    genomeIndex: 0,
-    player: null,
-    npc: null,
-    genomeId: 0
-};
+let roundMetrics = [];
 let playerStats = {
     timeSurvived: 0,
     jumpCount: 0,
@@ -70,6 +66,8 @@ let npcStats = {
 };
 let generationalPopulation = new Population(6);
 let currentGenomeIndex = 0;
+let numPlayerLives = 2;
+let numNpcLives = 2;
 //-----END GLOBAL VARIABLES-----//
 
 //-----SETUP-----//
@@ -184,6 +182,9 @@ function positionTargets() {
     }
 }
 positionTargets(); // Initial positioning of targets
+//ADD A NEW REPOSITION TARGETS AND ENEMIES FUNCTION
+//TO REUSE THE TARGETS AND ENEMIES INSTEAD OF RECREATING
+//THEM WHENEVER POSITION TARGETS/ENEMIES IS CALLED
 // Add NPC With More Complex Behavior
 const npcBehavior = {
     jumpFrequency: 2.0, // jumps every 3 seconds
@@ -257,10 +258,10 @@ export function updateScoreDisplay(score) {
 //-----ADD TIMER-----//
 const timerDisplay = document.createElement('div');
 timerDisplay.id = 'timer';
-timerDisplay.innerText = '03:00'; // Initial timer value
+timerDisplay.innerText = '01:15'; // Initial timer value
 document.body.appendChild(timerDisplay);
 let timerInterval; // Variable to store the interval ID
-let timeRemaining = 180; // 3 minutes in seconds
+let timeRemaining = MAX_ROUND_TIME; // 1.25 minutes in seconds
 function startTimer() {
     timerInterval = setInterval(() => {
         timeRemaining--;
@@ -271,7 +272,8 @@ function startTimer() {
         // End The Game If The Timer Reaches Zero
         if (timeRemaining <= 0) {
             clearInterval(timerInterval);
-            endGame();
+            continueRound();
+            //endGame();
         }
     }, 1000); // Update every second
 }
@@ -280,9 +282,10 @@ function startTimer() {
 //-----CREATE ROUND COUNTDOWN-----//
 const roundCountdown = document.createElement('div');
 roundCountdown.id = 'round-countdown';
-document.body.appendChild(roundCountdown);
+//document.body.appendChild(roundCountdown);
 function showRoundCountdown(seconds, onFinish) {
-    roundCountdown.style.display = FlakesTexture;
+    document.body.appendChild(roundCountdown);
+    roundCountdown.style.display = './assets/WinterSkyArena2.png';
     let value = seconds;
     roundCountdown.textContent = `Round ${currentRound} in ${value}`;
     const timerId = setInterval(() => {
@@ -331,7 +334,30 @@ guideButton.addEventListener('click', () => {
     window.open('./assets/Game-User-Guide.pdf', '_blank'); // Opens the PDF in a new tab
 });
 //-----END GAME GUIDE-----//
-
+//-----ADD RESET GAME BUTTON-----//
+    const restartButton = document.createElement('button');
+    restartButton.id = 'restart-button';
+    restartButton.innerText = 'Restart Game';
+    document.body.appendChild(restartButton);
+    // Add Hover Effects For The Restart Button
+    restartButton.addEventListener('mouseover', () => {
+        restartButton.style.backgroundColor = '#218838';
+    });
+    restartButton.addEventListener('mouseout', () => {
+        restartButton.style.backgroundColor = '#28a745';
+    });
+    // Restart The Game When The Button Is Clicked
+    restartButton.addEventListener('click', () => {
+        console.log("Restart button clicked.");
+        if (document.pointerLockElement) {
+            console.log("Pointer lock is active. Disabling it now...");
+            document.exitPointerLock();
+        } else {
+            console.log("Pointer lock is not active.");
+        }
+        restartGame();
+    });
+//-----END RESET GAME BUTTON-----//
 //-----START GAME-----//
 // Initialize Event Listeners For Controls
 eventListeners(mouseTime, keyStates, camera, spheres, sphereIdx, player);
@@ -354,6 +380,7 @@ startButton.id = 'start-button';
 startButton.innerText = 'Start Game';
 startScreen.appendChild(startButton);
 startScreen.appendChild(guideButton); // Add the guide button to the start screen
+//startScreen.appendChild(restartButton);
 // Move Game Key Controls Below Start Button
 const controlsInfo = document.createElement('div');
 controlsInfo.id = 'controls-info';
@@ -380,12 +407,14 @@ startButton.addEventListener('click', () => {
     backgroundMusic.play(); // Start the background music
     clock.start(); // Start the clock for timing
     startTimer(); // Start the timer
+    roundRunning = true;
+    startRound(); //UNCOMMENT THIS TO TEST ROUND LOGIC!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     //REMOVE ALL LINE BELOW BEFORE TRANSITIONING TO ROUND LOGIC!!!!!!!!!!
-    const genome = generationalPopulation.genomes[currentGenomeIndex];
-    npc.behavior = genome;
-    console.log("TESTING GENOME ID STORAGE: ", npc.behavior.id);
-    console.log("NPC starting behavior based on current randomly generated genome: ", npc.behavior);
-    animate(); // Start the game loop
+    //const genome = generationalPopulation.genomes[currentGenomeIndex];
+    //npc.behavior = genome;
+    //console.log("TESTING GENOME ID STORAGE: ", npc.behavior.id);
+    //console.log("NPC starting behavior based on current randomly generated genome: ", npc.behavior);
+    //animate(); // Start the game loop
     //REMOVE THIS CALL TO ANIMATE WHEN CHANGING LOGIC TO ROUNDS!!!!!
 });
 //-----END START GAME-----//
@@ -401,61 +430,17 @@ function startRound() {
     animate();
 }
 export function endRound() {
-    //roundRunning = false;
+    currentRound += 1;
+    roundsComplete += 1;
     updateMetrics();
     resetMetricsForNextGenome();
-    
-    roundMetrics.push({
-        round: currentRound,// Consider removing this since metrics should only be pushed once a genome is done being tested
-        genomeIndex: currentGenomeIndex,
-        player: {
-            timeSurvived: playerStats.timeSurvived,
-            jumpFrequency: playerStats.jumpCount / playerStats.timeSurvived,
-            turnSpeed: playerStats.turnAmount / playerStats.timeSurvived,
-            score: playerStats.score
-        },
-        npc: {
-            timeSurvived: npcStats.timeSurvived,
-            targetsHit: npcStats.targetsHit,
-            framesSafeDistance: npcStats.safeFrames,
-            totalFrames: npcStats.totalFrames,
-            avgActionLatency: npcStats.actionLatencies.length
-            ? npcStats.actionLatencies.reduce((a,b)=>a+b)/npcStats.actionLatencies.length
-            : 0,
-            measuredJumpFrequency: npcStats.jumpCount / npcStats.timeSurvived,
-            turnSpeed: npcStats.turnAmount / npcStats.timeSurvived,
-            score: npcStats.score
-        },
-        genomeId: npc.behavior.id
-    });
-    //currentRound += 1;
-    //roundsComplete += 1;
-    //THIS CHECK FOR MORE GENOMES TO TEST SHOULD OCCUR IN
-    //COLLECT METRICS DURING GAMEPLAY INSTEAD OF
-    //CALLING END GAME WHICH STOPS THE ANIMATION LOOP
-    genomeSlotInRound += 1;
-    if (genomeSlotInRound < GENOMES_PER_ROUND) {
-        // More genomes in round to be tested
-        currentGenomeIndex += 1;
-        resetMetricsForNextGenome();
-        resetNpcPosition();
+    genomeSlotInRound = 0;
+    currentGenomeIndex += 1;
+    resetRound();
+    npc.behavior = generationalPopulation[currentGenomeIndex];
+    showRoundCountdown(3, () => {
         startRound();
-    }
-    if (currentRound <= MAX_ROUNDS) {
-        currentGenomeIndex += 1;
-        resetMetricsForNextGenome();
-        resetNpcPosition();
-        npc.behavior = generationalPopulation[currentGenomeIndex];
-        showRoundCountdown(3, () => {
-            resetRound();
-            startRound();
-        })
-        //resetRound(); REMOVE AFTER DONE REFACTORING GAME START AND END LOGIC
-        //startRound();
-    } else {
-        completeGeneration();
-        endGame();
-    }
+    });
 }
 function updateMetrics() {
     roundMetrics.push({
@@ -489,9 +474,9 @@ function resetRound() {
     player.velocity.set(0,0,0);
     score.counter = 0;
     score.npcCounter = 0;
-    timeRemaining = 180;
-    if (timerInterval) clearInterval(timerInterval);
-    startTimer();
+    timeRemaining = MAX_ROUND_TIME;
+    //if (timerInterval) clearInterval(timerInterval);
+    //startTimer(); //May need to move this to start round
     positionEnemies();
     positionTargets();
 }
@@ -526,27 +511,40 @@ function resetMetricsForNextGenome() {
 // FIX THIS >>>>>>>> need to figure out whether to evaluate fitness on population object or individual genomes in the population
 // BELOW CAN BE REMOVED: this will only be called once after verifying all rounds are done
 function completeGeneration() {
-    generationsCompleted += 1;
     numGenomesTested += 6;
-    if (numGenomesTested < generationalPopulation.genomes.length) {
+    /*if (numGenomesTested < generationalPopulation.genomes.length) {
         //All genomes have not been tested and had metrics collected
         currentGenomeIndex = (currentGenomeIndex + 1) % generationalPopulation.genomes.length;
         currentRound = 1;
         roundMetrics = [];
         resetRound();
         startRound();
-    }
-  generationalPopulation.evaluateFitness(roundMetrics);
+    }*/
+    generationalPopulation.evaluateFitness(roundMetrics);
+    generationsCompleted += 1;
+  if (generationsCompleted < MAX_GENERATIONS) {
+    generationalPopulation.evolveGeneration();
+    currentGenomeIndex = (currentGenomeIndex + 1) % generationalPopulation.genomes.length;
+    currentRound = 1;
+    resetMetricsForNextGenome();
+    resetRound();
+    startRound();
+  } else {
+    console.log("Current Population Genome Fitness Values: ", generationalPopulation.fitnessScores);
+    endGame();
+  }
+  /*
   generationalPopulation.evolveGeneration();
   //VERIFY IF THIS IS THE CORRECT STARTING INDEX
   //WHEN PLAYING ANOTHER SESSION
   currentGenomeIndex = (currentGenomeIndex + 1) % generationalPopulation.genomes.length;
   currentRound = 1;
-  roundMetrics = [];
+  //roundMetrics = [];
+  resetMetricsForNextGenome();
   resetRoundForNext();
-  startRound();
+  startRound();*/
 }
-function collectLiveMetrics() {
+function collectLiveMetrics(deltaTime) {
     // Increment Player Stats from Player object
     playerStats.timeSurvived += deltaTime;
     playerStats.jumpCount += player.jumpCount;
@@ -575,19 +573,23 @@ function collectLiveMetrics() {
 export function continueRound() {
     if (genomeSlotInRound < GENOMES_PER_ROUND) {
             updateMetrics();
+            genomeSlotInRound += 1;
+            currentGenomeIndex += 1;
             resetMetricsForNextGenome();
             resetNpcPosition();
-            currentGenomeIndex += 1;
             npc.behavior = generationalPopulation[currentGenomeIndex];
         } else if (currentRound <= MAX_ROUNDS) {
             endRound();
         } else {
             roundRunning = false;
-            completeGeneration();
+            showRoundCountdown(3, () => {
+                completeGeneration();
+            })
+            //completeGeneration();
             // UPDATE SO THAT THE PLAYER PRESSES CONTINUE
             // PLAYING BUTTOM TO START ANOTHER SESSION
             // OR END GAME IF END GAME BUTTON IS PRESSED
-            endGame();
+            //endGame();
         }
 }
 //function isNpcFarFromAllEnemies(npc, enemies, minDist) {
@@ -598,16 +600,18 @@ let animationFrameId; // Global variable to store the animation frame ID
 let lastCameraY = 0;
 function animate() {
     //-----UNCOMMENT THIS WHEN READY TO APPLY ROUND BASED GAMEPLAY-----//
-    /*if(!roundRunning) {
+    if(!roundRunning) {
         console.log("Testing that game does not start unless round is running!");
-        return;
-    }*/
+        restartGame();
+        //return;
+    }
     console.log("Animation loop running...");
     animationFrameId = requestAnimationFrame(animate); // Store the frame ID
     animatePoints(points);
-    console.log("Snowflakes generated!");
+    //console.log("Snowflakes generated!");
     const deltaTime = Math.min( 0.05, clock.getDelta() ) / STEPS_PER_FRAME;
     // Collect Live Metrics
+    collectLiveMetrics(deltaTime);
     /* 
     if (roundRunning) {
         collectLiveMetrics();
@@ -621,8 +625,8 @@ function animate() {
         updateSpheres(deltaTime, spheres, worldOctree, GRAVITY, vector1, vector2, vector3, player);
         updateEnemiesAndTargets(deltaTime, enemies, targets, enemyAndTargetBounds); // Update enemies and targets within the octree
         npc.update(deltaTime, worldOctree, targets, enemies, npcSpawnBall, clock.getElapsedTime(), GRAVITY);
-        checkForEnemyCollisions(npc.collider, enemies, camera, player); // Check for collisions between NPC and enemies
-        checkBallTargetCollisions(spheres, targets, score, npc, worldOctree); // Check for NPC collisions with targets
+        checkForEnemyCollisions(npc.collider, enemies, camera, player, score); // Check for collisions between NPC and enemies
+        checkBallTargetCollisions(spheres, targets, score, npc, worldOctree, player); // Check for NPC collisions with targets
         teleportPlayerIfOob(camera, npc.collider, npc, player);
     }
     stats.update();
@@ -658,35 +662,16 @@ export function endGame() {
     finalScore.id = 'final-score';
     finalScore.innerText = `Final Score: ${score.counter} | NPC Score: ${score.npcCounter}`;
     gameOverScreen.appendChild(finalScore);
-    // Add A "Restart Game" Button
-    const restartButton = document.createElement('button');
-    restartButton.id = 'restart-button';
-    restartButton.innerText = 'Restart Game';
-    gameOverScreen.appendChild(restartButton);
     // Append The Game-Over Screen To The Document Body
     document.body.appendChild(gameOverScreen);
-    // Add Hover Effects For The Restart Button
-    restartButton.addEventListener('mouseover', () => {
-        restartButton.style.backgroundColor = '#218838';
-    });
-    restartButton.addEventListener('mouseout', () => {
-        restartButton.style.backgroundColor = '#28a745';
-    });
-    // Restart The Game When The Button Is Clicked
-    restartButton.addEventListener('click', () => {
-        console.log("Restart button clicked.");
-    
-        if (document.pointerLockElement) {
-            console.log("Pointer lock is active. Disabling it now...");
-            document.exitPointerLock();
-        } else {
-            console.log("Pointer lock is not active.");
-        }
-        restartGame();
-    });
 }
 //-----RESTART GAME-----//
 function restartGame() {
+    // Stop The Animation Loop
+    cancelAnimationFrame(animationFrameId); // Stop the animation loop
+    backgroundMusic.pause(); // Stop the background music
+    backgroundMusic.currentTime = 0; // Reset the music to the beginning
+    roundRunning = false; // Reset roundRunning to false
     console.log("Restarting game..."); // Debugging line
     // Remove the game over screen if it exists
     const gameOverScreen = document.getElementById('game-over-screen');
@@ -700,8 +685,8 @@ function restartGame() {
     updateScoreDisplay(score);
     // Reset the timer
     clearInterval(timerInterval); // Stop the previous timer
-    timeRemaining = 180; // Reset to 3 minutes
-    timerDisplay.innerText = '03:00'; // Reset the timer display
+    timeRemaining = MAX_ROUND_TIME; // Reset to maximum round time
+    timerDisplay.innerText = '01:15'; // Reset the timer display
     
     // Reset Player Position And Velocity
     player.collider.start.set(0, 0.35, 0);

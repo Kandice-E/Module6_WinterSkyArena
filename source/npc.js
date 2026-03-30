@@ -19,6 +19,8 @@ export class NPC {
     }) {
         this.scene = scene;
         this.behavior = behavior;
+        this.numberOfLives = 2;
+        this.score = 0;
         // Capsule collider like player
         const height = 1.0;
         const radius = 0.35;
@@ -104,10 +106,10 @@ export class NPC {
         // Gravity
         if (!this.onFloor) {
             this.velocity.y -= GRAVITY * delta;
-            console.log("NPC is IN THE AIR applying gravity!");
+            //console.log("NPC is IN THE AIR applying gravity!"); //DEBUG LINE: CAN SAFELY REMOVE ONCE TESTING FINISHED
         } else {
             this.velocity.y = 0;
-            console.log("NPC is ON THE GROUND! Setting downward velocity to ZERO.");
+            //console.log("NPC is ON THE GROUND! Setting downward velocity to ZERO."); //DEBUG LINE: CAN SAFELY REMOVE ONCE TESTING FINISHED
         }
         //DEBUG LINES: verify current state of NPC behavior parameters and velocity vector
         //console.log("Checking for current NPC y velocity: ", this.velocity.y);

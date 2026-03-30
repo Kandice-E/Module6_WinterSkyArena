@@ -133,16 +133,20 @@ export class Population {
             //let adaptabilityTerm = Math.max(0, (100 - Math.abs((scoreRatio * 100) - (scoreRatioExpec * 100))) / 100);
             avgComponents.adaptability += Math.max(0, (100 - Math.abs((scoreRatio * 100) - (scoreRatioExpec * 100))) / 100);
             // FITNESS COMPONENT 4: [0, 1]
-            const accuracy =  (npcStats.targetsHit / Math.max(1, npcStats.ballsThrown)) * 100;
-            const avoidance = (npcStats.framesSafeDistance / npcStats.totalFrames) * 100;
+            const accuracy =  (npcStats.targetsHit / Math.max(1, npcStats.ballsThrown));
+            const avoidance = (npcStats.framesSafeDistance / npcStats.totalFrames);
             //let behavioralTerm = (accuracy + avoidance) / 200;
-            avgComponents.behavioral += (accuracy + avoidance) / 200;
+            avgComponents.behavioral += (accuracy + avoidance) / 2;
             // FITNESS COMPONENT 5: [0, 1]
-            const latencyScore = Math.max(0, 100 - npcStats.avgActionLatency * 10);
-            const jumpScore = Math.max(0, 100 - Math.abs(npcStats.measuredJumpFrequency - playerStats.jumpFrequency));
-            const turnScore = Math.min(0, 100 - Math.abs(npcStats.turnSpeed - playerStats.turnSpeed) * 5);
+            const latencyScore = inverseRangeScore(npcStats.avgActionLatency, 0.05, 0.3); //Adjusted to no longer compare to player but rather measure based on an acceptable range
+            const jumpScore = rangeScore(npcStats.measuredJumpFrequency, 3, 7);
+            const turnScore = rangeScore(npcStats.turnSpeed, 5, 10);
+            avgComponents.responsiveness += (latencyScore + jumpScore + turnScore) / 3;
+            //const latencyScore = Math.max(0, 100 - npcStats.avgActionLatency * 10);
+            //const jumpScore = Math.max(0, 100 - Math.abs(npcStats.measuredJumpFrequency - playerStats.jumpFrequency));
+            //const turnScore = Math.max(0, 100 - Math.abs(npcStats.turnSpeed - playerStats.turnSpeed) * 5);
             //let responsivenessTerm = (latencyScore + jumpScore + turnScore) / 300;
-            avgComponents.responsiveness += (latencyScore + jumpScore + turnScore) / 300;
+            //avgComponents.responsiveness += (latencyScore + jumpScore + turnScore) / 3;
             // FINAL WEIGHTED FITNESS: [0, 5]
             //fitness = (competitiveWeight * competitiveTerm) +
               //         (closenessWeight * closenessTerm) +
@@ -280,4 +284,14 @@ function gaussianRandom(mean = 0, stdDev = 1) {
 }
 function generateUniqueId() {
     return Math.random().toString(36).substring(2, 10);
+}
+function rangeScore(value, min, max) {
+    if (value < min) return value / min;
+    if (value > max) return Math.max(0, 1 - (value - max) / min);
+    return 1;
+}
+function inverseRangeScore(value, min, max) {
+    if (value < min) return 1; //ideal or better
+    if (value > max) return Math.max(0, 1 - (value - max) / min);
+    return 1;
 }

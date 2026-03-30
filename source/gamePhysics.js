@@ -119,7 +119,7 @@ function updateEnemiesAndTargets(deltaTime, enemies, targets, enemyAndTargetBoun
     });
 }
 // General Collision Detection Function For Player-Enemy Collisions and NPC Collisions
-function checkForEnemyCollisions(npcCollider, enemies, camera, player) {
+function checkForEnemyCollisions(npcCollider, enemies, camera, player, score) {
     
     for (const enemy of enemies) {
         const distance1 = npcCollider.start.distanceTo(enemy.collider.center);
@@ -127,40 +127,44 @@ function checkForEnemyCollisions(npcCollider, enemies, camera, player) {
         const combinedRadius1 = npcCollider.radius + enemy.collider.radius;
         const combinedRadius2 = player.collider.radius + enemy.collider.radius;
         if (distance1 < combinedRadius1) {
-            console.log("NPC collided with an enemy.");
+            console.log("NPC collided with an enemy. Resetting position. MINUS 1 POINT!");
             npcCollider.start.set( 0, 0.35, 0 );
             npcCollider.end.set( 0, 1, 0 );
             npcCollider.radius = 0.35;
-            
-            endGame(); // Call the game-over function
+            npc.score -= 1;
+            score.npcScore -= 1;
+            updateScoreDisplay(score);
+            //endGame(); // Call the game-over function
             // Future update could decrement npc number of lives
             // and end game once lives equal zero.
 
             //-----UNCOMMENT THIS WHEN READY TO USE ROUND BASED GAMEPLAY-----//
-            //console.log("NPC collided with an enemy! Restarting round.");
+            //console.log("NPC collided with an enemy! Starting next round if all genomes tested.");
             //continueRound();
-            
-            break;
+            //break;
         }
         if (distance2 < combinedRadius2) {
-            console.log("Player collided with an enemy.");
+            console.log("Player collided with an enemy. Resetting position. MINUS 1 POINT!");
             player.collider.start.set( 0, 0.35, 0 );
             player.collider.end.set( 0, 1, 0 );
             player.collider.radius = 0.35;
             camera.position.copy( player.collider.end );
             camera.rotation.set( 0, 0, 0 );
-            endGame(); // Call the game-over function
+            player.score -= 1;
+            score.counter -= 1;
+            updateScoreDisplay(score);
+            //endGame(); // Call the game-over function
             // Future update could decrement npc number of lives
             // and end game once lives equal zero.
 
             //-----UNCOMMENT THIS WHEN READY TO USE ROUND BASED GAMEPLAY-----//
             //console.log("Player collided with an enemy! Restarting round.");
             //continueRound();
-            break;
+            //break;
         }
     }
 }
-function checkBallTargetCollisions(spheres, targets, score, npc, worldOctree) {
+function checkBallTargetCollisions(spheres, targets, score, npc, worldOctree, player) {
     spheres.forEach (sphere => {
         for (const target of targets) {
             const distance = sphere.collider.center.distanceTo(target.collider.center);
@@ -169,6 +173,7 @@ function checkBallTargetCollisions(spheres, targets, score, npc, worldOctree) {
                 if (target === targets[npc.targetIndex] && npc.lastBallIndex === spheres.indexOf(sphere)) {
                     console.log("NPC hit a target!");
                     score.npcCounter += 1;
+                    npc.score += 1;
                     npc.targetsHit += 1;
                 }
                 else if (target === targets[npc.targetIndex] && npc.lastBallIndex !== spheres.indexOf(sphere)) {
@@ -212,7 +217,7 @@ function teleportPlayerIfOob(camera, npcCollider, npc, player) {
         npcCollider.end.set( 0.6, 1, 0.6 );
         npcCollider.radius = 0.35;
         npc.mesh.position.copy( npc.getCenter() );
-        //endGame(); // Call the game-over function
+        //endGame(); // DEBUG LINE: CAN SAFELY REMOVE ONCE DONE WITH TESTING
     }
     if ( camera.position.y <= -25 ) {
         console.log("Player fell out of bounds. Resetting position.");
@@ -221,7 +226,7 @@ function teleportPlayerIfOob(camera, npcCollider, npc, player) {
         player.collider.radius = 0.35;
         camera.position.copy( player.collider.end );
         camera.rotation.set( 0, 0, 0 );
-        //endGame(); // Call the game-over function
+        //endGame(); // DEBUG LINE: CAN SAFELY REMOVE ONCE DONE WITH TESTING
     }
 }
 function throwBall(spheres, sphereIdx, camera, mouseTime, player) {

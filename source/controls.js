@@ -39,14 +39,13 @@ function eventListeners(mouseTime, keyStates, camera, spheres, sphereIdx, player
     } );
 }
 function controls(keyStates, camera, deltaTime, player) {
-   console.log("Player in Controls: ", player);
+   //console.log("Player in Controls: ", player); DEBUG LINE: CAN SAFELY REMOVE ONCE TESTING FINISHED
     // Gives A Bit Of Air Control
     const speedDelta = deltaTime * ( player.onFloor ? 30 : 8 );
     let forward = new THREE.Vector3();
     let side = new THREE.Vector3();
     
     if ( keyStates[ 'w' ] ) {
-        //playerDirection.copy(player.direction);
         forward.copy(getForwardVector(camera, player));
         player.velocity.add( forward.clone().multiplyScalar( speedDelta ) );
     }
@@ -63,10 +62,10 @@ function controls(keyStates, camera, deltaTime, player) {
         player.velocity.add( side.clone().multiplyScalar( speedDelta ) );
     }
     if ( keyStates[ ' ' ] && player.onFloor ) {
-        console.log("Velocity:", player.velocity);
+        //console.log("Velocity:", player.velocity); //DEBUG LINE: CAN SAFELY REMOVE ONCE TESTING FINISHED
         player.velocity.y = 15;
         player.jumpCount += 1;
-        console.log("Player Velocity Y:", player.velocity.y);
+        //console.log("Player Velocity Y:", player.velocity.y); //DEBUG LINE: CAN SAFELY REMOVE ONCE TESTING FINISHED
     }
 }
 function getForwardVector(camera, player) {
