@@ -49,12 +49,14 @@ const genomeTestWindow = 30;
 let roundRunning = false;
 let roundMetrics = [];
 let playerStats = {
+    startTime: 0,
     timeSurvived: 0,
     jumpCount: 0,
     turnAmount: 0,
     score: 0
 };
 let npcStats = {
+    startTime: 0,
     timeSurvived: 0,
     targetsHit: 0,
     safeFrames: 0,
@@ -409,7 +411,7 @@ startButton.addEventListener('click', () => {
     startScreen.style.display = 'none'; // Hide the start screen
     backgroundMusic.play(); // Start the background music
     clock.start(); // Start the clock for timing
-    startTimer(); // Start the timer
+    //startTimer(); // Start the timer
     roundRunning = true;
     startRound(); //UNCOMMENT THIS TO TEST ROUND LOGIC!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     //REMOVE ALL LINE BELOW BEFORE TRANSITIONING TO ROUND LOGIC!!!!!!!!!!
@@ -430,6 +432,8 @@ function startRound() {
     //console.log("NPC starting behavior based on current randomly generated genome: ", npc.behavior);
     //resetRoundState();
     roundRunning = true;
+    startTimer(); // Start the timer
+    npcStats.startTime = performance.now();//START HERE<<<<<<
     animate();
 }
 export function endRound() {
@@ -549,13 +553,15 @@ function completeGeneration() {
 }
 function collectLiveMetrics(deltaTime) {
     // Increment Player Stats from Player object
-    playerStats.timeSurvived += deltaTime;
+    //playerStats.timeSurvived += deltaTime;
+    playerStats.timeSurvived = (performance.now() - playerStats.startTime) / 1000;
     playerStats.jumpCount += player.jumpCount;
     playerStats.turnAmount += Math.abs(camera.rotation.y - lastCameraY);
     playerStats.score += player.score;
     lastCameraY = camera.rotation.y;
     // Increment NPC Stats from NPC object
-    npcStats.timeSurvived += deltaTime;
+    //npcStats.timeSurvived += deltaTime;
+    npcStats.timeSurvived = (performance.now() - npcStats.startTime) / 1000;
     npcStats.targetsHit = npc.targetsHit;
     npcStats.totalFrames += 1;
     npcStats.framesSafeDistance += 1;
