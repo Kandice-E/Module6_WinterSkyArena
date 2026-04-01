@@ -3,12 +3,20 @@ import { NPC } from './npc';
 
 export class Genome {
     constructor() {
-        this.jumpFrequency = roundTo(Math.random() * 3 + 2, 2); // 2 to 5 seconds
-        this.ballThrowPower = roundTo(Math.random() * 40 + 30, 2); // 20 to 70 velocity multiplier
-        this.ballThrowFrequency = roundTo(Math.random() * 4 + 3, 2); // 3 to 7 seconds
-        this.targetSelectionRadius = roundTo(Math.random() * 30 + 15, 2); // 15 to 45 units
-        this.enemyAvoidanceDistance = roundTo(Math.random() * 8 + 7, 2); // 7 to 15 units
-        this.movementSpeedMultiplier = roundTo(Math.random() + 1, 2); // 1 to 2 multiplier
+        this.behavior = {
+        jumpFrequency: roundTo(Math.random() * 3 + 2, 2), // 2 to 5 seconds
+        ballThrowPower: roundTo(Math.random() * 40 + 30, 2), // 20 to 70 velocity multiplier
+        ballThrowFrequency: roundTo(Math.random() * 4 + 3, 2), // 3 to 7 seconds
+        targetSelectionRadius: roundTo(Math.random() * 30 + 15, 2), // 15 to 45 units
+        enemyAvoidanceDistance: roundTo(Math.random() * 8 + 7, 2), // 7 to 15 units
+        movementSpeedMultiplier: roundTo(Math.random() + 1, 2) // 1 to 2 multiplier
+        };
+        //this.jumpFrequency = roundTo(Math.random() * 3 + 2, 2); // 2 to 5 seconds
+        //this.ballThrowPower = roundTo(Math.random() * 40 + 30, 2); // 20 to 70 velocity multiplier
+        //this.ballThrowFrequency = roundTo(Math.random() * 4 + 3, 2); // 3 to 7 seconds
+        //this.targetSelectionRadius = roundTo(Math.random() * 30 + 15, 2); // 15 to 45 units
+        //this.enemyAvoidanceDistance = roundTo(Math.random() * 8 + 7, 2); // 7 to 15 units
+        //this.movementSpeedMultiplier = roundTo(Math.random() + 1, 2); // 1 to 2 multiplier
         this.fitness = 0;
         this.evaluations = 0;
         this.metrics = {

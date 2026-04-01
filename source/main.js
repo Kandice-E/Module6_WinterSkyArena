@@ -271,7 +271,7 @@ function startTimer() {
         const timeElapsed = (performance.now() - roundStartTime) / 1000;
         const timeRemaining = Math.max(0, MAX_ROUND_TIME - timeElapsed);
         const minutes = Math.floor(timeRemaining / 60);
-        const seconds = timeRemaining % 60;
+        const seconds = Math.floor(timeRemaining % 60);
         // Update The Timer Display
         timerDisplay.innerText = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
         // End The Game If The Timer Reaches Zero
@@ -426,15 +426,22 @@ startButton.addEventListener('click', () => {
 
 // New function for round state logic: start, end, reset
 function startRound() {
+    genomeSlotInRound += 1;
     const genome = generationalPopulation.genomes[currentGenomeIndex];
-    npc.behavior = genome;
-    console.log("CURRENT NPC BEHAVIOR GENOME BEING TESTED: ", genome);
+    npc.behavior = genome.behavior;
+    console.log("CURRENT NPC BEHAVIOR GENOME BEING TESTED: ", genome.behavior);
     //console.log("NPC starting behavior based on current randomly generated genome: ", npc.behavior);
     //resetRoundState();
+    showRoundCountdown(3, () => {
     roundRunning = true;
     startTimer(); // Start the timer
     npcStats.startTime = performance.now();//START HERE<<<<<<
     animate();
+    });
+    //roundRunning = true;
+    //startTimer(); // Start the timer
+    //npcStats.startTime = performance.now();//START HERE<<<<<<
+    //animate();
 }
 export function endRound() {
     currentRound += 1;
@@ -444,10 +451,13 @@ export function endRound() {
     genomeSlotInRound = 0;
     currentGenomeIndex += 1;
     resetRound();
-    npc.behavior = generationalPopulation[currentGenomeIndex];
-    showRoundCountdown(3, () => {
-        startRound();
-    });
+    const currentGenome = generationalPopulation.genomes[currentGenomeIndex];
+    npc.behavior = currentGenome.behavior;
+    console.log("STARTING NEXT ROUND AFTER 2 GENOME TESTS:>>>>>>>>>");
+    startRound();
+    //showRoundCountdown(3, () => {
+        //startRound();
+    //});
 }
 function updateMetrics() {
     roundMetrics.push({
@@ -460,7 +470,7 @@ function updateMetrics() {
             score: playerStats.score
         },
         npc: {
-            timeSurvived: npcStats.timeSurvived,
+            timeSurvived: (performance.now() - npcStats.startTime) / 1000,
             targetsHit: npcStats.targetsHit,
             framesSafeDistance: npcStats.safeFrames,
             totalFrames: npcStats.totalFrames,
@@ -481,7 +491,7 @@ function resetRound() {
     player.velocity.set(0,0,0);
     score.counter = 0;
     score.npcCounter = 0;
-    timeRemaining = MAX_ROUND_TIME;
+    //timeRemaining = MAX_ROUND_TIME;
     //if (timerInterval) clearInterval(timerInterval);
     //startTimer(); //May need to move this to start round
     positionEnemies();
@@ -504,6 +514,7 @@ function resetMetricsForNextGenome() {
         score: 0
     };
     npcStats = {
+        startTime: performance.now(),
         timeSurvived: 0,
         targetsHit: 0,
         safeFrames: 0,
@@ -581,23 +592,25 @@ function collectLiveMetrics(deltaTime) {
     //return {playerStats, npcStats}
 }
 export function continueRound() {
+    updateMetrics();
     if (genomeSlotInRound < GENOMES_PER_ROUND) {
-            updateMetrics();
+            //updateMetrics();
             genomeSlotInRound += 1;
             currentGenomeIndex += 1;
             resetMetricsForNextGenome();
             resetNpcPosition();//-----CONTINUE HERE AFTER ABOVE: After full round time ends, continueRound is called, but somewhere the genome is 
             //becoming undefined. Start by verifying where currentGenomeIndex should be incremented and if it is done correctly.-----//
-            console.log("Previous Genome: ", generationalPopulation[currentGenomeIndex]);
-            npc.behavior = generationalPopulation[currentGenomeIndex];
-            console.log("Current Genome After Updating to Second Test Genome: ", generationalPopulation[currentGenomeIndex]);
-        } else if (currentRound <= MAX_ROUNDS) {
+            console.log("Previous Genome: ", npc.behavior);
+            const currentGenome = generationalPopulation.genomes[currentGenomeIndex];
+            npc.behavior = currentGenome.behavior;
+            console.log("Current Genome After Updating to Second Test Genome: ", npc.behavior);
+        } else if (currentRound < MAX_ROUNDS) {
             endRound();
         } else {
             roundRunning = false;
-            showRoundCountdown(3, () => {
-                completeGeneration();
-            })
+            cancelAnimationFrame(animationFrameId);
+            completeGeneration();
+            
             //completeGeneration();
             // UPDATE SO THAT THE PLAYER PRESSES CONTINUE
             // PLAYING BUTTOM TO START ANOTHER SESSION
@@ -614,7 +627,8 @@ let lastCameraY = 0;
 function animate() {
     //-----UNCOMMENT THIS WHEN READY TO APPLY ROUND BASED GAMEPLAY-----//
     if(!roundRunning) {
-        console.log("Testing that game does not start unless round is running!");
+        console.log("No rounds running. Stopping animation loop!");
+        cancelAnimationFrame(animationFrameId); // Stop the animation loop
         restartGame();
         //return;
     }
@@ -638,7 +652,7 @@ function animate() {
         updateSpheres(deltaTime, spheres, worldOctree, GRAVITY, vector1, vector2, vector3, player);
         updateEnemiesAndTargets(deltaTime, enemies, targets, enemyAndTargetBounds); // Update enemies and targets within the octree
         npc.update(deltaTime, worldOctree, targets, enemies, npcSpawnBall, clock.getElapsedTime(), GRAVITY);
-        checkForEnemyCollisions(npc.collider, enemies, camera, player, score); // Check for collisions between NPC and enemies
+        checkForEnemyCollisions(npc.collider, enemies, camera, player, score, npc); // Check for collisions between NPC and enemies
         checkBallTargetCollisions(spheres, targets, score, npc, worldOctree, player); // Check for NPC collisions with targets
         teleportPlayerIfOob(camera, npc.collider, npc, player);
     }
@@ -658,6 +672,7 @@ export function endGame() {
     cancelAnimationFrame(animationFrameId); // Stop the animation loop
     backgroundMusic.pause(); // Stop the background music
     backgroundMusic.currentTime = 0; // Reset the music to the beginning
+    roundRunning = false;
     // Stop/Reset the Timer
     clearInterval(timerInterval);
     // Reset The Clock
@@ -698,7 +713,7 @@ function restartGame() {
     updateScoreDisplay(score);
     // Reset the timer
     clearInterval(timerInterval); // Stop the previous timer
-    timeRemaining = MAX_ROUND_TIME; // Reset to maximum round time
+    //timeRemaining = MAX_ROUND_TIME; // Reset to maximum round time
     timerDisplay.innerText = '01:15'; // Reset the timer display
     
     // Reset Player Position And Velocity

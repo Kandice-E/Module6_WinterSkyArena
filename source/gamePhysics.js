@@ -119,7 +119,7 @@ function updateEnemiesAndTargets(deltaTime, enemies, targets, enemyAndTargetBoun
     });
 }
 // General Collision Detection Function For Player-Enemy Collisions and NPC Collisions
-function checkForEnemyCollisions(npcCollider, enemies, camera, player, score) {
+function checkForEnemyCollisions(npcCollider, enemies, camera, player, score, npc) {
     
     for (const enemy of enemies) {
         const distance1 = npcCollider.start.distanceTo(enemy.collider.center);
