@@ -55,9 +55,9 @@ export class Population {
                 const {min, max} = GENE_RANGES[key];
                 const range = max - min;
                 const noise = gaussianRandom(0, noiseStdDev * range);
-                genome[key] += noise;
+                genome.behavior[key] += noise;
                 //Clamp to range
-                genome[key] = Math.max(min, Math.min(max, genome[key]));
+                genome.behavior[key] = Math.max(min, Math.min(max, genome[key]));
             }
         });
         //if (Math.random() < mutationRate) genome.jumpFrequency = Math.random() * 3 + 1;
@@ -72,8 +72,8 @@ export class Population {
         const alpha = 0.3;
 
         Object.keys(GENE_RANGES).forEach(key => {
-            const p1 = parentA[key];
-            const p2 = parentB[key];
+            const p1 = parentA.behavior[key];
+            const p2 = parentB.behavior[key];
             const minVal = Math.min(p1, p2);
             const maxVal = Math.max(p1, p2);
             const diff = maxVal - minVal;
@@ -84,7 +84,7 @@ export class Population {
             child[key] = Math.random() * (rangeMax - rangeMin) + rangeMin;
             //Clamp to gene range
             const {min, max} = GENE_RANGES[key];
-            child[key] = Math.max(min, Math.min(max, child[key]));
+            child.behavior[key] = Math.max(min, Math.min(max, child[key]));
         });
         //child.jumpFrequency = Math.random() < 0.5 ? parentA.jumpFrequency : parentB.jumpFrequency;
         //child.ballThrowPower = Math.random() < 0.5 ? parentA.ballThrowPower : parentB.ballThrowPower;
@@ -112,7 +112,7 @@ export class Population {
         for (let g = 0; g < this.genomes.length; g++) {
             const genomeMetrics = roundMetrics.filter(m => m.genomeIndex === g);
             //Skip if no metrics collected this round
-            if (roundMetrics.length === 0) continue;
+            if (genomeMetrics.length === 0) continue;
             //Compute average terms across the rounds for this genome
             let avgComponents = {
                 competitive: 0,
@@ -165,7 +165,7 @@ export class Population {
             });
             //Divide by number of rounds to get average
             for (let key in avgComponents) {
-                avgComponents[key] /= roundMetrics.length;
+                avgComponents[key] /= genomeMetrics.length;
             }
             //Alpha Rolling Fitness (EMA)
             const alpha = 0.4;

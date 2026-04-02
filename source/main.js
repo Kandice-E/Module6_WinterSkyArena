@@ -68,8 +68,10 @@ let npcStats = {
 };
 let generationalPopulation = new Population(6);
 let currentGenomeIndex = 0;
-let numPlayerLives = 2;
-let numNpcLives = 2;
+export const collisionState = {
+    lastPlayerEnemyCollisionTime: 0
+};
+export const COLLISION_COOLDOWN = 0.5;
 //-----END GLOBAL VARIABLES-----//
 
 //-----SETUP-----//
@@ -243,6 +245,10 @@ const scoreDisplay = document.createElement('div');
 scoreDisplay.id = 'score'; // Add an ID for easy access
 scoreDisplay.innerText = `Player Score: ${score.counter} NPC Score: ${score.npcCounter}`; // Initial score display
 document.body.appendChild(scoreDisplay);
+const roundDisplay = document.createElement('div');
+roundDisplay.id = 'round-display';
+roundDisplay.innerText = `Round: ${currentRound}`;
+document.body.appendChild(roundDisplay);
 // Update Score Display Function
 export function updateScoreDisplay(score) {
     console.log("Score updated:", score.counter); // Debugging line
@@ -274,10 +280,15 @@ function startTimer() {
         const seconds = Math.floor(timeRemaining % 60);
         // Update The Timer Display
         timerDisplay.innerText = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-        // End The Game If The Timer Reaches Zero
+        // End The Round If The Timer Reaches Zero
         if (timeRemaining <= 0) {
             clearInterval(timerInterval);
-            continueRound();
+            if (currentRound < MAX_ROUNDS) {
+                continueRound();
+            } else {
+                endGame();
+            }
+            //continueRound();
             //endGame();
         }
     }, 100); // Update more frequently for accuracy
@@ -289,8 +300,10 @@ const roundCountdown = document.createElement('div');
 roundCountdown.id = 'round-countdown';
 //document.body.appendChild(roundCountdown);
 function showRoundCountdown(seconds, onFinish) {
-    document.body.appendChild(roundCountdown);
-    roundCountdown.style.display = './assets/WinterSkyArena2.png';
+    if (!roundCountdown.parentElement) {
+        document.body.appendChild(roundCountdown);
+    }
+    roundCountdown.style.display = 'flex';
     let value = seconds;
     roundCountdown.textContent = `Round ${currentRound} in ${value}`;
     const timerId = setInterval(() => {
@@ -432,6 +445,11 @@ function startRound() {
     console.log("CURRENT NPC BEHAVIOR GENOME BEING TESTED: ", genome.behavior);
     //console.log("NPC starting behavior based on current randomly generated genome: ", npc.behavior);
     //resetRoundState();
+    timerDisplay.innerText = '01:15'; // Reset timer display at the start of each round
+    //Update round display
+    roundDisplay.innerText = `Round: ${currentRound}/${MAX_ROUNDS}`;
+    console.log(`Player Score: ${score.counter} NPC Score: ${score.npcCounter}`); // Debugging line
+    console.log(`Player Score from Player Stats: ${playerStats.score} NPC Score from NPC Stats: ${npcStats.score}`); // Debugging line
     showRoundCountdown(3, () => {
     roundRunning = true;
     startTimer(); // Start the timer
@@ -443,10 +461,10 @@ function startRound() {
     //npcStats.startTime = performance.now();//START HERE<<<<<<
     //animate();
 }
-export function endRound() {
+export function startNextRound() {
     currentRound += 1;
     roundsComplete += 1;
-    updateMetrics();
+    //updateMetrics();
     resetMetricsForNextGenome();
     genomeSlotInRound = 0;
     currentGenomeIndex += 1;
@@ -474,6 +492,7 @@ function updateMetrics() {
             targetsHit: npcStats.targetsHit,
             framesSafeDistance: npcStats.safeFrames,
             totalFrames: npcStats.totalFrames,
+            ballsThrown: npcStats.ballsThrown,
             avgActionLatency: npcStats.actionLatencies.length
             ? npcStats.actionLatencies.reduce((a,b)=>a+b)/npcStats.actionLatencies.length
             : 0,
@@ -494,6 +513,7 @@ function resetRound() {
     //timeRemaining = MAX_ROUND_TIME;
     //if (timerInterval) clearInterval(timerInterval);
     //startTimer(); //May need to move this to start round
+    updateScoreDisplay(score);
     positionEnemies();
     positionTargets();
 }
@@ -508,6 +528,7 @@ function resetNpcPosition() {
 }
 function resetMetricsForNextGenome() {
     playerStats = {
+        startTime: performance.now(),
         timeSurvived: 0,
         jumpCount: 0,
         turnAmount: 0,
@@ -519,6 +540,7 @@ function resetMetricsForNextGenome() {
         targetsHit: 0,
         safeFrames: 0,
         totalFrames: 0,
+        ballsThrown: 0,
         actionLatencies: [],
         jumpCount: 0,
         turnAmount: 0,
@@ -568,7 +590,7 @@ function collectLiveMetrics(deltaTime) {
     playerStats.timeSurvived = (performance.now() - playerStats.startTime) / 1000;
     playerStats.jumpCount += player.jumpCount;
     playerStats.turnAmount += Math.abs(camera.rotation.y - lastCameraY);
-    playerStats.score += player.score;
+    playerStats.score = player.score;
     lastCameraY = camera.rotation.y;
     // Increment NPC Stats from NPC object
     //npcStats.timeSurvived += deltaTime;
@@ -577,16 +599,17 @@ function collectLiveMetrics(deltaTime) {
     npcStats.totalFrames += 1;
     npcStats.framesSafeDistance += 1;
     npcStats.actionLatencies = npc.actionLatencies;
-    npcStats.score += npc.score;
+    npcStats.score = npc.score;
     if (npc.lastActionLatency != null) {
         npcStats.actionLatencies.push(npc.lastActionLatency);
         npc.lastActionLatency = null;
     }
+    npcStats.ballsThrown = npc.lastBallIndex;
     // Check for npc testing window limit reached and 
     // end game if limit reached before enemy collision
     // is detected or all round genomes tested
     console.log("----------COLLECTING LIVE METRICS----------: ", npcStats.timeSurvived);
-    if (npcStats.timeSurvived >= genomeTestWindow) {//-----START HERE: This is not being called at all so check all references---------------//
+    if (npcStats.timeSurvived >= genomeTestWindow) {
         continueRound();
     }
     //return {playerStats, npcStats}
@@ -605,7 +628,7 @@ export function continueRound() {
             npc.behavior = currentGenome.behavior;
             console.log("Current Genome After Updating to Second Test Genome: ", npc.behavior);
         } else if (currentRound < MAX_ROUNDS) {
-            endRound();
+            startNextRound();
         } else {
             roundRunning = false;
             cancelAnimationFrame(animationFrameId);
@@ -613,7 +636,7 @@ export function continueRound() {
             
             //completeGeneration();
             // UPDATE SO THAT THE PLAYER PRESSES CONTINUE
-            // PLAYING BUTTOM TO START ANOTHER SESSION
+            // PLAYING BUTTON TO START ANOTHER SESSION
             // OR END GAME IF END GAME BUTTON IS PRESSED
             //endGame();
         }
@@ -630,7 +653,7 @@ function animate() {
         console.log("No rounds running. Stopping animation loop!");
         cancelAnimationFrame(animationFrameId); // Stop the animation loop
         restartGame();
-        //return;
+        return;
     }
     console.log("Animation loop running...");
     animationFrameId = requestAnimationFrame(animate); // Store the frame ID

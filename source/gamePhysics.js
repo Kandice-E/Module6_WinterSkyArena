@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { endGame, updateScoreDisplay, continueRound } from './main.js';
+import { endGame, updateScoreDisplay, continueRound, collisionState, COLLISION_COOLDOWN } from './main.js';
 
 function updatePlayer(deltaTime, worldOctree, GRAVITY, camera, player) {
     let damping = Math.exp( - 4 * deltaTime ) - 1;
@@ -120,19 +120,23 @@ function updateEnemiesAndTargets(deltaTime, enemies, targets, enemyAndTargetBoun
 }
 // General Collision Detection Function For Player-Enemy Collisions and NPC Collisions
 function checkForEnemyCollisions(npcCollider, enemies, camera, player, score, npc) {
-    
+    const currentTime = performance.now() / 1000;
     for (const enemy of enemies) {
         const distance1 = npcCollider.start.distanceTo(enemy.collider.center);
         const distance2 = player.collider.start.distanceTo(enemy.collider.center);
         const combinedRadius1 = npcCollider.radius + enemy.collider.radius;
         const combinedRadius2 = player.collider.radius + enemy.collider.radius;
         if (distance1 < combinedRadius1) {
+            if (currentTime - collisionState.lastPlayerEnemyCollisionTime < COLLISION_COOLDOWN) {
+                return; // Skip collision handling if we're still in the cooldown period
+            }
             console.log("NPC collided with an enemy. Resetting position. MINUS 1 POINT!");
+            collisionState.lastPlayerEnemyCollisionTime = currentTime; // Update the last collision time
             npcCollider.start.set( 0, 0.35, 0 );
             npcCollider.end.set( 0, 1, 0 );
             npcCollider.radius = 0.35;
             npc.score -= 1;
-            score.npcScore -= 1;
+            score.npcCounter -= 1;
             updateScoreDisplay(score);
             //endGame(); // Call the game-over function
             // Future update could decrement npc number of lives
@@ -144,7 +148,11 @@ function checkForEnemyCollisions(npcCollider, enemies, camera, player, score, np
             //break;
         }
         if (distance2 < combinedRadius2) {
+            if (currentTime - collisionState.lastPlayerEnemyCollisionTime < COLLISION_COOLDOWN) {
+                return; // Skip collision handling if we're still in the cooldown period
+            }
             console.log("Player collided with an enemy. Resetting position. MINUS 1 POINT!");
+            collisionState.lastPlayerEnemyCollisionTime = currentTime; // Update the last collision time
             player.collider.start.set( 0, 0.35, 0 );
             player.collider.end.set( 0, 1, 0 );
             player.collider.radius = 0.35;
