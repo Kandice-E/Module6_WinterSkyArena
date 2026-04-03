@@ -547,6 +547,78 @@ function resetMetricsForNextGenome() {
         score: 0
     };
 }
+// Function to export metrics to CSV
+function exportMetricsToCSV() {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+    const filename = `generation_${generationsCompleted}_metrics_${timestamp}.csv`;
+    
+    // CSV Header
+    const headers = [
+        'Generation',
+        'Round',
+        'GenomeIndex',
+        'GenomeID',
+        'PlayerTimeSurvived',
+        'PlayerJumpFrequency',
+        'PlayerTurnSpeed',
+        'PlayerScore',
+        'NPCTimeSurvived',
+        'NPCTargetsHit',
+        'NPCFramesSafeDistance',
+        'NPCTotalFrames',
+        'NPCBallsThrown',
+        'NPCAvgActionLatency',
+        'NPCJumpFrequency',
+        'NPCTurnSpeed',
+        'NPCScore',
+        'GenomeFitness'
+    ];
+    
+    // CSV Rows
+    const rows = roundMetrics.map(metric => {
+        const genome = generationalPopulation.genomes[metric.genomeIndex];
+        return [
+            generationsCompleted,
+            metric.round,
+            metric.genomeIndex,
+            metric.genomeId,
+            metric.player.timeSurvived.toFixed(2),
+            metric.player.jumpFrequency.toFixed(2),
+            metric.player.turnSpeed.toFixed(2),
+            metric.player.score,
+            metric.npc.timeSurvived.toFixed(2),
+            metric.npc.targetsHit,
+            metric.npc.framesSafeDistance,
+            metric.npc.totalFrames,
+            metric.npc.ballsThrown,
+            metric.npc.avgActionLatency.toFixed(4),
+            metric.npc.measuredJumpFrequency.toFixed(2),
+            metric.npc.turnSpeed.toFixed(2),
+            metric.npc.score,
+            genome.fitness.toFixed(4)
+        ];
+    });
+    
+    // Build CSV content
+    let csvContent = headers.join(',') + '\n';
+    rows.forEach(row => {
+        csvContent += row.map(cell => {
+            // Escape commas and quotes in cell values
+            const str = String(cell);
+            return str.includes(',') || str.includes('"') ? `"${str.replace(/"/g, '""')}"` : str;
+        }).join(',') + '\n';
+    });
+    
+    // Create blob and download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    link.click();
+    
+    console.log(`Metrics exported to ${filename}`);
+}
+
 // Function to complete one generation once three rounds are played
 // FIX THIS >>>>>>>> need to figure out whether to evaluate fitness on population object or individual genomes in the population
 // BELOW CAN BE REMOVED: this will only be called once after verifying all rounds are done
@@ -563,6 +635,7 @@ function completeGeneration() {
     generationalPopulation.evaluateFitness(roundMetrics);
     generationsCompleted += 1;
   if (generationsCompleted < MAX_GENERATIONS) {
+    exportMetricsToCSV();
     generationalPopulation.evolveGeneration();
     currentGenomeIndex = (currentGenomeIndex + 1) % generationalPopulation.genomes.length;
     currentRound = 1;
@@ -570,6 +643,7 @@ function completeGeneration() {
     resetRound();
     startRound();
   } else {
+    exportMetricsToCSV();
     console.log("Current Population Genome Fitness Values: ", generationalPopulation.fitnessScores);
     endGame();
   }
