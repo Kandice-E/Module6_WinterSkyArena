@@ -50,6 +50,7 @@ export class NPC {
         this.lastJump = 0;
         this.lastThrow = 0;
         this.jumpCount = 0;
+        this.turnAmount = 0; // Track total rotation amount for fitness evaluation
         this.baseSpeed = 2.5; // base movement speed
         this.timeSurvived = 0; // For fitness evaluation
         this.targetsHit = 0; // For fitness evaluation
@@ -157,13 +158,13 @@ export class NPC {
             this.lastBallIndex = spawnBallFn ? spawnBallFn(spawnPos, velocity) : this.lastBallIndex; // Store index of thrown ball for potential tracking
         }
         if (this.targetIndex != this.lastTargetIndex) {
-            this.lastActionLatency = this.framesSinceTargetDetected;
+            this.lastActionLatency = this.framesSinceTargetDetection;
             this.actionLatencies.push(this.lastActionLatency);
-            this.framesSinceTargetDetected = 0;
+            this.framesSinceTargetDetection = 0;
         }
     }
     isNpcFarFromAllEnemies(enemies) {
-        return enemies.every(e => this.getCenter().distanceTo(e.collider.center) >= this.enemyAvoidanceDistance);
+        return enemies.every(e => this.getCenter().distanceTo(e.collider.center) >= this.behavior.enemyAvoidanceDistance);
     }
     findNearestTarget(center, targets, maxDist) {
         let nearest = -1;

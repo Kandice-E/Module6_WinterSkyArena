@@ -68,6 +68,7 @@ let npcStats = {
 };
 let generationalPopulation = new Population(6);
 let currentGenomeIndex = 0;
+let allGenerationsCSVData = []; // Accumulate CSV data across all generations
 export const collisionState = {
     lastPlayerEnemyCollisionTime: 0
 };
@@ -373,7 +374,7 @@ guideButton.addEventListener('click', () => {
         } else {
             console.log("Pointer lock is not active.");
         }
-        restartGame();
+        roundRunning = false; // Signal animate loop to stop
     });
 //-----END RESET GAME BUTTON-----//
 //-----START GAME-----//
@@ -424,9 +425,11 @@ startButton.addEventListener('click', () => {
     startScreen.style.display = 'none'; // Hide the start screen
     backgroundMusic.play(); // Start the background music
     clock.start(); // Start the clock for timing
-    //startTimer(); // Start the timer
     roundRunning = true;
-    startRound(); //UNCOMMENT THIS TO TEST ROUND LOGIC!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    resetMetricsForNextGenome(); // Initialize metrics with proper startTime for first round
+    player.score = 0; // Reset player score
+    npc.score = 0; // Reset NPC score
+    startRound();
     //REMOVE ALL LINE BELOW BEFORE TRANSITIONING TO ROUND LOGIC!!!!!!!!!!
     //const genome = generationalPopulation.genomes[currentGenomeIndex];
     //npc.behavior = genome;
@@ -453,6 +456,7 @@ function startRound() {
     showRoundCountdown(3, () => {
     roundRunning = true;
     startTimer(); // Start the timer
+    playerStats.startTime = performance.now(); // Initialize player stats timing
     npcStats.startTime = performance.now();//START HERE<<<<<<
     animate();
     });
@@ -466,6 +470,8 @@ export function startNextRound() {
     roundsComplete += 1;
     //updateMetrics();
     resetMetricsForNextGenome();
+    player.score = 0; // Reset player score for next round
+    npc.score = 0; // Reset NPC score for next round
     genomeSlotInRound = 0;
     currentGenomeIndex += 1;
     resetRound();
@@ -478,8 +484,9 @@ export function startNextRound() {
     //});
 }
 function updateMetrics() {
+    const genomeId = generationalPopulation.genomes[currentGenomeIndex].id;
     roundMetrics.push({
-        round: currentRound,// Consider removing this since metrics should only be pushed once a genome is done being tested
+        round: currentRound,
         genomeIndex: currentGenomeIndex,
         player: {
             timeSurvived: playerStats.timeSurvived,
@@ -500,7 +507,7 @@ function updateMetrics() {
             turnSpeed: npcStats.turnAmount / npcStats.timeSurvived,
             score: npcStats.score
         },
-        genomeId: npc.behavior.id
+        genomeId: genomeId
     });
 }
 function resetRound() {
@@ -508,6 +515,7 @@ function resetRound() {
     player.collider.start.set(0,0.35,0);
     player.collider.end.set(0,1,0);
     player.velocity.set(0,0,0);
+    player.jumpCount = 0; // Reset player jump counter
     score.counter = 0;
     score.npcCounter = 0;
     //timeRemaining = MAX_ROUND_TIME;
@@ -524,7 +532,9 @@ function resetNpcPosition() {
     npc.framesSinceTargetDetected = 0;
     npc.lastActionLatency = 0;
     npc.actionLatencies.length = 0;
-    npc.totalFrames = 0;
+    npc.totalFrames = 0;    npc.targetsHit = 0; // Reset targets hit counter
+    npc.jumpCount = 0; // Reset jump counter
+    npc.turnAmount = 0; // Reset turn amount}
 }
 function resetMetricsForNextGenome() {
     playerStats = {
@@ -549,10 +559,7 @@ function resetMetricsForNextGenome() {
 }
 // Function to export metrics to CSV
 function exportMetricsToCSV() {
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
-    const filename = `generation_${generationsCompleted}_metrics_${timestamp}.csv`;
-    
-    // CSV Header
+    // CSV Header (only add once at the beginning)
     const headers = [
         'Generation',
         'Round',
@@ -574,7 +581,7 @@ function exportMetricsToCSV() {
         'GenomeFitness'
     ];
     
-    // CSV Rows
+    // CSV Rows for current generation
     const rows = roundMetrics.map(metric => {
         const genome = generationalPopulation.genomes[metric.genomeIndex];
         return [
@@ -599,14 +606,36 @@ function exportMetricsToCSV() {
         ];
     });
     
-    // Build CSV content
-    let csvContent = headers.join(',') + '\n';
-    rows.forEach(row => {
-        csvContent += row.map(cell => {
-            // Escape commas and quotes in cell values
-            const str = String(cell);
-            return str.includes(',') || str.includes('"') ? `"${str.replace(/"/g, '""')}"` : str;
-        }).join(',') + '\n';
+    // Accumulate data
+    allGenerationsCSVData.push({
+        headers: headers,
+        rows: rows
+    });
+    
+    console.log(`Generation ${generationsCompleted} metrics added to export queue`);
+}
+
+// Function to download all accumulated CSV data
+function downloadAllGenerationsCSV() {
+    if (allGenerationsCSVData.length === 0) {
+        console.log('No metrics to export');
+        return;
+    }
+    
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+    const filename = `all_generations_metrics_${timestamp}.csv`;
+    
+    // Build combined CSV content
+    let csvContent = allGenerationsCSVData[0].headers.join(',') + '\n';
+    
+    // Append all rows from all generations
+    allGenerationsCSVData.forEach(generationData => {
+        generationData.rows.forEach(row => {
+            csvContent += row.map(cell => {
+                const str = String(cell);
+                return str.includes(',') || str.includes('"') ? `"${str.replace(/"/g, '""')}"` : str;
+            }).join(',') + '\n';
+        });
     });
     
     // Create blob and download
@@ -616,7 +645,7 @@ function exportMetricsToCSV() {
     link.download = filename;
     link.click();
     
-    console.log(`Metrics exported to ${filename}`);
+    console.log(`All metrics exported to ${filename}`);
 }
 
 // Function to complete one generation once three rounds are played
@@ -639,11 +668,13 @@ function completeGeneration() {
     generationalPopulation.evolveGeneration();
     currentGenomeIndex = (currentGenomeIndex + 1) % generationalPopulation.genomes.length;
     currentRound = 1;
+    roundMetrics = [];
     resetMetricsForNextGenome();
     resetRound();
     startRound();
   } else {
     exportMetricsToCSV();
+    downloadAllGenerationsCSV();
     console.log("Current Population Genome Fitness Values: ", generationalPopulation.fitnessScores);
     endGame();
   }
@@ -660,33 +691,35 @@ function completeGeneration() {
 }
 function collectLiveMetrics(deltaTime) {
     // Increment Player Stats from Player object
-    //playerStats.timeSurvived += deltaTime;
     playerStats.timeSurvived = (performance.now() - playerStats.startTime) / 1000;
-    playerStats.jumpCount += player.jumpCount;
+    playerStats.jumpCount = player.jumpCount; // Capture current jump count (not accumulate)
     playerStats.turnAmount += Math.abs(camera.rotation.y - lastCameraY);
-    playerStats.score = player.score;
+    playerStats.score = player.score; // Current score at this moment
     lastCameraY = camera.rotation.y;
+    
     // Increment NPC Stats from NPC object
-    //npcStats.timeSurvived += deltaTime;
     npcStats.timeSurvived = (performance.now() - npcStats.startTime) / 1000;
-    npcStats.targetsHit = npc.targetsHit;
+    npcStats.targetsHit = npc.targetsHit; // Capture current targets hit count
     npcStats.totalFrames += 1;
-    npcStats.framesSafeDistance += 1;
-    npcStats.actionLatencies = npc.actionLatencies;
-    npcStats.score = npc.score;
+    // Only increment safe frames when NPC is actually safe from all enemies
+    if (npc.isNpcFarFromAllEnemies(enemies)) {
+        npcStats.safeFrames += 1;
+    }
+    // Use actionLatencies from NPC object (don't overwrite)
+    npcStats.score = npc.score; // Current score at this moment
     if (npc.lastActionLatency != null) {
         npcStats.actionLatencies.push(npc.lastActionLatency);
         npc.lastActionLatency = null;
     }
     npcStats.ballsThrown = npc.lastBallIndex;
-    // Check for npc testing window limit reached and 
-    // end game if limit reached before enemy collision
-    // is detected or all round genomes tested
+    npcStats.jumpCount = npc.jumpCount; // Capture current jump count
+    npcStats.turnAmount = npc.turnAmount; // Capture current turn amount
+    
+    // Check for npc testing window limit reached
     console.log("----------COLLECTING LIVE METRICS----------: ", npcStats.timeSurvived);
     if (npcStats.timeSurvived >= genomeTestWindow) {
         continueRound();
     }
-    //return {playerStats, npcStats}
 }
 export function continueRound() {
     updateMetrics();
@@ -695,6 +728,8 @@ export function continueRound() {
             genomeSlotInRound += 1;
             currentGenomeIndex += 1;
             resetMetricsForNextGenome();
+            player.score = 0; // Reset player score for next genome test
+            npc.score = 0; // Reset NPC score for next genome test
             resetNpcPosition();//-----CONTINUE HERE AFTER ABOVE: After full round time ends, continueRound is called, but somewhere the genome is 
             //becoming undefined. Start by verifying where currentGenomeIndex should be incremented and if it is done correctly.-----//
             console.log("Previous Genome: ", npc.behavior);
@@ -722,35 +757,32 @@ export function continueRound() {
 let animationFrameId; // Global variable to store the animation frame ID
 let lastCameraY = 0;
 function animate() {
-    //-----UNCOMMENT THIS WHEN READY TO APPLY ROUND BASED GAMEPLAY-----//
+    // Check if we should stop the animation loop
     if(!roundRunning) {
         console.log("No rounds running. Stopping animation loop!");
-        cancelAnimationFrame(animationFrameId); // Stop the animation loop
-        restartGame();
+        cancelAnimationFrame(animationFrameId);
+        setTimeout(() => restartGame(), 0); // Let current frame finish before restarting
         return;
     }
+    
     console.log("Animation loop running...");
     animationFrameId = requestAnimationFrame(animate); // Store the frame ID
     animatePoints(points);
-    //console.log("Snowflakes generated!");
+    
     const deltaTime = Math.min( 0.05, clock.getDelta() ) / STEPS_PER_FRAME;
     // Collect Live Metrics
     collectLiveMetrics(deltaTime);
-    /* 
-    if (roundRunning) {
-        collectLiveMetrics();
-    }
-    */
+    
     // we look for collisions in substeps to mitigate the risk of
     // an object traversing another too quickly for detection.
     for ( let i = 0; i < STEPS_PER_FRAME; i ++ ) {
         controls(keyStates, camera, deltaTime, player);
         updatePlayer(deltaTime, worldOctree, GRAVITY, camera, player);
         updateSpheres(deltaTime, spheres, worldOctree, GRAVITY, vector1, vector2, vector3, player);
-        updateEnemiesAndTargets(deltaTime, enemies, targets, enemyAndTargetBounds); // Update enemies and targets within the octree
+        updateEnemiesAndTargets(deltaTime, enemies, targets, enemyAndTargetBounds);
         npc.update(deltaTime, worldOctree, targets, enemies, npcSpawnBall, clock.getElapsedTime(), GRAVITY);
-        checkForEnemyCollisions(npc.collider, enemies, camera, player, score, npc); // Check for collisions between NPC and enemies
-        checkBallTargetCollisions(spheres, targets, score, npc, worldOctree, player); // Check for NPC collisions with targets
+        checkForEnemyCollisions(npc.collider, enemies, camera, player, score, npc);
+        checkBallTargetCollisions(spheres, targets, score, npc, worldOctree, player);
         teleportPlayerIfOob(camera, npc.collider, npc, player);
     }
     stats.update();
@@ -798,19 +830,30 @@ function restartGame() {
     backgroundMusic.currentTime = 0; // Reset the music to the beginning
     roundRunning = false; // Reset roundRunning to false
     console.log("Restarting game..."); // Debugging line
+    
+    // Reset metrics and generation tracking
+    allGenerationsCSVData = [];
+    generationsCompleted = 0;
+    currentRound = 1;
+    genomeSlotInRound = 0;
+    currentGenomeIndex = 0;
+    roundMetrics = [];
+    generationalPopulation = new Population(6);
+    
     // Remove the game over screen if it exists
     const gameOverScreen = document.getElementById('game-over-screen');
     if (gameOverScreen) {
         document.body.removeChild(gameOverScreen);
         console.log("Game over screen removed.");
     }
+    
     // Reset The Score
     score.counter = 0;
     score.npcCounter = 0;
     updateScoreDisplay(score);
+    
     // Reset the timer
     clearInterval(timerInterval); // Stop the previous timer
-    //timeRemaining = MAX_ROUND_TIME; // Reset to maximum round time
     timerDisplay.innerText = '01:15'; // Reset the timer display
     
     // Reset Player Position And Velocity
@@ -822,16 +865,10 @@ function restartGame() {
     player.jumpFrequency = 0;
     player.turnSpeed = 0;
     
-   /* 
-    // Reset Player Position And Velocity
-    playerCollider.start.set(0, 0.35, 0);
-    playerCollider.end.set(0, 1, 0);
-    playerVelocity.set(0, 0, 0);*/
     // Reset NPC Position, Velocity, and Behavior State
     npc.collider.start.set(0.6, 0.35, 0.6);
     npc.collider.end.set(0.6, 1, 0.6);
     npc.velocity.set(0, 0, 0);
-    //npc.behaviorState = {}; // Reset any custom behavior state variables
     npc.targetIndex = -1; // Reset target index to force new target selection
     npc.lastThrow = 0; // Reset throw timer
     npc.lastJump = 0; // Reset jump timer
@@ -839,41 +876,27 @@ function restartGame() {
     npc.onFloor = false; // Reset on-floor state
     npc.baseSpeed = 2.5; // Reset base movement speed
     npc.mesh.position.copy(npc.getCenter()); // Ensure NPC mesh is positioned correctly
+    
     // Reset Spheres
     spheres.forEach(sphere => {
         sphere.mesh.visible = false;
         sphere.collider.center.set(0, -100, 0); // Move spheres out of the scene
         sphere.velocity.set(0, 0, 0);
     });
+    
     // Reset Enemies
     enemies.forEach(enemy => {
         scene.remove(enemy.mesh); // Remove existing enemy meshes from the scene
     });
     enemies.length = 0; // Clear the enemies array
     positionEnemies(); // Reposition enemies using the function to ensure they are placed correctly within the octree bounds
-    /*enemies.forEach(enemy => {
-        const randomX = Math.random() * 30 - 10;
-        const randomY = Math.random() * 5 + 1;
-        const randomZ = Math.random() * 30 - 10;
-        enemy.collider.center.set(randomX, randomY, randomZ);
-        enemy.mesh.position.copy(enemy.collider.center);
-        enemy.velocity.set(0, Math.random() * 2 + 1, 0);
-        enemy.direction = 1;
-    });*/
+    
     // Reset Targets
     targets.forEach(target => {
         scene.remove(target.mesh); // Remove existing target meshes from the scene
     });
     targets.length = 0; // Clear the targets array
     positionTargets(); // Reposition targets using the function to ensure they are placed correctly within the octree bounds    
-    /*targets.forEach(target => {
-        const randomX = Math.random() * 30 - 10;
-        const randomY = Math.random() * 2;
-        const randomZ = Math.random() * 30 - 10;
-        target.collider.center.set(randomX, randomY, randomZ);
-        target.mesh.position.copy(target.collider.center);
-        target.velocity.set(0, Math.random() * 2 + 1, 0);
-        target.direction = 1;
-    });*/
+    
     startScreen.style.display = 'flex'; // Show the start screen again
 }
