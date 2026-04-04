@@ -371,10 +371,10 @@ guideButton.addEventListener('click', () => {
         if (document.pointerLockElement) {
             console.log("Pointer lock is active. Disabling it now...");
             document.exitPointerLock();
-        } else {
-            console.log("Pointer lock is not active.");
         }
         roundRunning = false; // Signal animate loop to stop
+        cancelAnimationFrame(animationFrameId); // Cancel pending animation frame
+        restartGame(); // Always call restartGame directly
     });
 //-----END RESET GAME BUTTON-----//
 //-----START GAME-----//
@@ -446,6 +446,12 @@ function startRound() {
     const genome = generationalPopulation.genomes[currentGenomeIndex];
     npc.behavior = genome.behavior;
     console.log("CURRENT NPC BEHAVIOR GENOME BEING TESTED: ", genome.behavior);
+    
+    // Reset NPC frame tracking for this test to prevent accumulation across rounds
+    npc.totalFrames = 0;
+    npc.actionLatencies.length = 0;
+    npc.framesSinceTargetDetection = 0;
+    
     //console.log("NPC starting behavior based on current randomly generated genome: ", npc.behavior);
     //resetRoundState();
     timerDisplay.innerText = '01:15'; // Reset timer display at the start of each round
@@ -485,6 +491,7 @@ export function startNextRound() {
 }
 function updateMetrics() {
     const genomeId = generationalPopulation.genomes[currentGenomeIndex].id;
+    const genome = generationalPopulation.genomes[currentGenomeIndex];
     roundMetrics.push({
         round: currentRound,
         genomeIndex: currentGenomeIndex,
@@ -507,7 +514,15 @@ function updateMetrics() {
             turnSpeed: npcStats.turnAmount / npcStats.timeSurvived,
             score: npcStats.score
         },
-        genomeId: genomeId
+        genomeId: genomeId,
+        behavior: {
+            jumpFrequency: genome.behavior.jumpFrequency,
+            ballThrowPower: genome.behavior.ballThrowPower,
+            ballThrowFrequency: genome.behavior.ballThrowFrequency,
+            targetSelectionRadius: genome.behavior.targetSelectionRadius,
+            enemyAvoidanceDistance: genome.behavior.enemyAvoidanceDistance,
+            movementSpeedMultiplier: genome.behavior.movementSpeedMultiplier
+        }
     });
 }
 function resetRound() {
@@ -522,20 +537,55 @@ function resetRound() {
     //if (timerInterval) clearInterval(timerInterval);
     //startTimer(); //May need to move this to start round
     updateScoreDisplay(score);
-    positionEnemies();
-    positionTargets();
+    repositionEnemies();
+    repositionTargets();
+}
+// Reposition existing enemies without creating new ones
+function repositionEnemies() {
+    for (let i = 0; i < enemies.length; i++) {
+        let randomX, randomY, randomZ, dist;
+        do {
+            randomX = Math.random() * 30 - 10;
+            randomY = Math.random() * 5 + 1;
+            randomZ = Math.random() * 30 - 10;
+            dist = Math.sqrt(randomX * randomX + (randomY - 0.35) * (randomY - 0.35) + randomZ * randomZ);
+        } while (dist < 4);
+        enemies[i].collider.center.set(randomX, randomY, randomZ);
+        enemies[i].mesh.position.set(randomX, randomY, randomZ);
+        enemies[i].velocity.set(0, Math.random() * 2 + 1, 0);
+        enemies[i].direction = 1;
+    }
+}
+// Reposition existing targets without creating new ones
+function repositionTargets() {
+    for (let i = 0; i < targets.length; i++) {
+        let randomX, randomY, randomZ, dist;
+        do {
+            randomX = Math.random() * 30 - 10;
+            randomY = Math.random() * 2;
+            randomZ = Math.random() * 30 - 10;
+            dist = Math.sqrt(randomX * randomX + (randomY - 0.35) * (randomY - 0.35) + randomZ * randomZ);
+        } while (dist < 4);
+        targets[i].collider.center.set(randomX, randomY, randomZ);
+        targets[i].mesh.position.set(randomX, randomY, randomZ);
+        targets[i].velocity.set(0, Math.random() * 2 + 1, 0);
+        targets[i].direction = 1;
+    }
 }
 function resetNpcPosition() {
     npc.collider.start.set(0.6,0.35,0.6);
     npc.collider.end.set(0.6,1,0.6);
     npc.velocity.set(0,0,0);
-    npc.framesSinceTargetDetected = 0;
+    npc.framesSinceTargetDetection = 0;
     npc.lastActionLatency = 0;
     npc.actionLatencies.length = 0;
-    npc.totalFrames = 0;    npc.targetsHit = 0; // Reset targets hit counter
+    npc.totalFrames = 0;
+    npc.targetsHit = 0; // Reset targets hit counter
     npc.jumpCount = 0; // Reset jump counter
-    npc.turnAmount = 0; // Reset turn amount}
+    npc.turnAmount = 0; // Reset turn amount
+    npc.ballsThrown = 0; // Reset balls thrown counter
 }
+
 function resetMetricsForNextGenome() {
     playerStats = {
         startTime: performance.now(),
@@ -578,7 +628,13 @@ function exportMetricsToCSV() {
         'NPCJumpFrequency',
         'NPCTurnSpeed',
         'NPCScore',
-        'GenomeFitness'
+        'GenomeFitness',
+        'BehaviorJumpFrequency',
+        'BehaviorBallThrowPower',
+        'BehaviorBallThrowFrequency',
+        'BehaviorTargetSelectionRadius',
+        'BehaviorEnemyAvoidanceDistance',
+        'BehaviorMovementSpeedMultiplier'
     ];
     
     // CSV Rows for current generation
@@ -602,7 +658,13 @@ function exportMetricsToCSV() {
             metric.npc.measuredJumpFrequency.toFixed(2),
             metric.npc.turnSpeed.toFixed(2),
             metric.npc.score,
-            genome.fitness.toFixed(4)
+            genome.fitness.toFixed(4),
+            metric.behavior.jumpFrequency,
+            metric.behavior.ballThrowPower,
+            metric.behavior.ballThrowFrequency,
+            metric.behavior.targetSelectionRadius,
+            metric.behavior.enemyAvoidanceDistance,
+            metric.behavior.movementSpeedMultiplier
         ];
     });
     
@@ -711,7 +773,7 @@ function collectLiveMetrics(deltaTime) {
         npcStats.actionLatencies.push(npc.lastActionLatency);
         npc.lastActionLatency = null;
     }
-    npcStats.ballsThrown = npc.lastBallIndex;
+    npcStats.ballsThrown = npc.ballsThrown; // Capture ball throw counter
     npcStats.jumpCount = npc.jumpCount; // Capture current jump count
     npcStats.turnAmount = npc.turnAmount; // Capture current turn amount
     
@@ -761,7 +823,10 @@ function animate() {
     if(!roundRunning) {
         console.log("No rounds running. Stopping animation loop!");
         cancelAnimationFrame(animationFrameId);
-        setTimeout(() => restartGame(), 0); // Let current frame finish before restarting
+        // Queue restart after current frame completes
+        if (!document.getElementById('game-over-screen')) {
+            setTimeout(() => restartGame(), 50);
+        }
         return;
     }
     

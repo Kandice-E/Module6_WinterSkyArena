@@ -51,6 +51,8 @@ export class NPC {
         this.lastThrow = 0;
         this.jumpCount = 0;
         this.turnAmount = 0; // Track total rotation amount for fitness evaluation
+        this.ballsThrown = 0; // Counter for balls thrown
+        this.lastDirection = new THREE.Vector3(0, 0, 1); // Track previous direction for turn calculation
         this.baseSpeed = 2.5; // base movement speed
         this.timeSurvived = 0; // For fitness evaluation
         this.targetsHit = 0; // For fitness evaluation
@@ -73,7 +75,6 @@ export class NPC {
         if (this.targetIndex < 0 || !targets[this.targetIndex] ||
             center.distanceTo(targets[this.targetIndex].collider.center) > this.behavior.targetSelectionRadius) {
             this.targetIndex = this.findNearestTarget(center, targets, this.behavior.targetSelectionRadius);
-            this.lastTargetIndex = this.targetIndex;
         }
         // Calculate movement direction
         let moveDir = new THREE.Vector3();
@@ -96,6 +97,13 @@ export class NPC {
         const speed = this.baseSpeed * this.behavior.movementSpeedMultiplier;
         this.velocity.x = moveDir.x * speed;
         this.velocity.z = moveDir.z * speed;
+        
+        // Track heading changes for turn speed metric
+        if (moveDir.length() > 0) {
+            const headingChange = Math.acos(Math.max(-1, Math.min(1, this.lastDirection.dot(moveDir))));
+            this.turnAmount += headingChange;
+            this.lastDirection.copy(moveDir);
+        }
         // Jumping
         if (this.onFloor && (time - this.lastJump) > this.behavior.jumpFrequency) {
             this.velocity.y = 20; // jump impulse
@@ -150,6 +158,7 @@ export class NPC {
         // Throwing balls
         if (time - this.lastThrow > this.behavior.ballThrowFrequency && this.targetIndex >= 0) {
             this.lastThrow = time;
+            this.ballsThrown += 1; // Increment ball throw counter
             const spawnPos = center.clone().add(new THREE.Vector3(0, 0.9, 0));
             const target = targets[this.targetIndex];
             const dir = target.collider.center.clone().sub(spawnPos).normalize();
@@ -161,9 +170,11 @@ export class NPC {
             this.lastActionLatency = this.framesSinceTargetDetection;
             this.actionLatencies.push(this.lastActionLatency);
             this.framesSinceTargetDetection = 0;
+            this.lastTargetIndex = this.targetIndex; // Update after recording latency
         }
     }
     isNpcFarFromAllEnemies(enemies) {
+        if (!enemies || enemies.length === 0) return true; // Safe if no enemies
         return enemies.every(e => this.getCenter().distanceTo(e.collider.center) >= this.behavior.enemyAvoidanceDistance);
     }
     findNearestTarget(center, targets, maxDist) {
