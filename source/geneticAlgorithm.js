@@ -4,19 +4,13 @@ import { NPC } from './npc';
 export class Genome {
     constructor() {
         this.behavior = {
-        jumpFrequency: roundTo(Math.random() * 3 + 2, 2), // 2 to 5 seconds
-        ballThrowPower: roundTo(Math.random() * 40 + 30, 2), // 20 to 70 velocity multiplier
-        ballThrowFrequency: roundTo(Math.random() * 4 + 3, 2), // 3 to 7 seconds
-        targetSelectionRadius: roundTo(Math.random() * 30 + 15, 2), // 15 to 45 units
-        enemyAvoidanceDistance: roundTo(Math.random() * 8 + 7, 2), // 7 to 15 units
-        movementSpeedMultiplier: roundTo(Math.random() + 1, 2) // 1 to 2 multiplier
+        jumpFrequency: roundTo(Math.random() * 1.5 + 2.75, 2), // 2.75 to 4.25 seconds (centered at ~3.5)
+        ballThrowPower: roundTo(Math.random() * 30 + 40, 2), // 40 to 70 velocity multiplier (centered at ~55)
+        ballThrowFrequency: roundTo(Math.random() * 2 + 4, 2), // 4 to 6 seconds (centered at ~5)
+        targetSelectionRadius: roundTo(Math.random() * 20 + 20, 2), // 20 to 40 units (centered at ~30)
+        enemyAvoidanceDistance: roundTo(Math.random() * 4 + 8, 2), // 8 to 12 units (centered at ~10)
+        movementSpeedMultiplier: roundTo(Math.random() * 0.6 + 1.2, 2) // 1.2 to 1.8 multiplier (centered at ~1.5)
         };
-        //this.jumpFrequency = roundTo(Math.random() * 3 + 2, 2); // 2 to 5 seconds
-        //this.ballThrowPower = roundTo(Math.random() * 40 + 30, 2); // 20 to 70 velocity multiplier
-        //this.ballThrowFrequency = roundTo(Math.random() * 4 + 3, 2); // 3 to 7 seconds
-        //this.targetSelectionRadius = roundTo(Math.random() * 30 + 15, 2); // 15 to 45 units
-        //this.enemyAvoidanceDistance = roundTo(Math.random() * 8 + 7, 2); // 7 to 15 units
-        //this.movementSpeedMultiplier = roundTo(Math.random() + 1, 2); // 1 to 2 multiplier
         this.fitness = 0;
         this.evaluations = 0;
         this.metrics = {
@@ -30,12 +24,12 @@ export class Genome {
     }
 }
 const GENE_RANGES = {
-            jumpFrequency: { min: 2, max: 5 },
-            ballThrowPower: { min: 30, max: 70 },
-            ballThrowFrequency: { min: 3, max: 7 },
-            targetSelectionRadius: { min: 15, max: 45 },
-            enemyAvoidanceDistance: { min: 7, max: 15 },
-            movementSpeedMultiplier: { min: 1, max: 2 }
+            jumpFrequency: { min: 2, max: 5 }, // Keep original range for evolution flexibility
+            ballThrowPower: { min: 30, max: 70 }, // Keep original range for evolution flexibility
+            ballThrowFrequency: { min: 3, max: 7 }, // Keep original range for evolution flexibility
+            targetSelectionRadius: { min: 10, max: 50 }, // Expanded for more exploration potential
+            enemyAvoidanceDistance: { min: 5, max: 15 }, // Expanded range
+            movementSpeedMultiplier: { min: 0.8, max: 2 } // Expanded for more variation
         }
 export class Population {
     constructor(size) {
@@ -57,15 +51,9 @@ export class Population {
                 const noise = gaussianRandom(0, noiseStdDev * range);
                 genome.behavior[key] += noise;
                 //Clamp to range
-                genome.behavior[key] = Math.max(min, Math.min(max, genome[key]));
+                genome.behavior[key] = Math.max(min, Math.min(max, genome.behavior[key]));
             }
         });
-        //if (Math.random() < mutationRate) genome.jumpFrequency = Math.random() * 3 + 1;
-        //if (Math.random() < mutationRate) genome.ballThrowPower = Math.random() * 40 + 20;
-        //if (Math.random() < mutationRate) genome.ballThrowFrequency = Math.random() * 4 + 1;
-        //if (Math.random() < mutationRate) genome.targetSelectionRadius = Math.random() * 20 + 10;
-        //if (Math.random() < mutationRate) genome.enemyAvoidanceDistance = Math.random() * 10 + 5;
-        //if (Math.random() < mutationRate) genome.movementSpeedMultiplier = Math.random() * 2 + 1;
     }
     crossover(parentA, parentB) {
         const child = new Genome();
@@ -81,17 +69,13 @@ export class Population {
             const rangeMin = minVal - alpha * diff;
             const rangeMax = maxVal + alpha * diff;
 
-            child[key] = Math.random() * (rangeMax - rangeMin) + rangeMin;
+            child.behavior[key] = Math.random() * (rangeMax - rangeMin) + rangeMin;
             //Clamp to gene range
             const {min, max} = GENE_RANGES[key];
-            child.behavior[key] = Math.max(min, Math.min(max, child[key]));
+            child.behavior[key] = Math.max(min, Math.min(max, child.behavior[key]));
         });
-        //child.jumpFrequency = Math.random() < 0.5 ? parentA.jumpFrequency : parentB.jumpFrequency;
-        //child.ballThrowPower = Math.random() < 0.5 ? parentA.ballThrowPower : parentB.ballThrowPower;
-        //child.ballThrowFrequency = Math.random() < 0.5 ? parentA.ballThrowFrequency : parentB.ballThrowFrequency;
-        //child.targetSelectionRadius = Math.random() < 0.5 ? parentA.targetSelectionRadius : parentB.targetSelectionRadius;
-        //child.enemyAvoidanceDistance = Math.random() < 0.5 ? parentA.enemyAvoidanceDistance : parentB.enemyAvoidanceDistance;
-        //child.movementSpeedMultiplier = Math.random() < 0.5 ? parentA.movementSpeedMultiplier : parentB.movementSpeedMultiplier;
+        child.id = generateUniqueId();
+        child.fitness = 0; // Initialize fitness for new children
         return child;
     } //-----START HERE WITH UPDATES-----//
     //-----Refactor fitness evaluation to be done on each genome in the population-----//
@@ -103,11 +87,6 @@ export class Population {
             behavioral: 0.15,
             responsiveness: 0.1
         };
-        //const competitiveWeight = 0.3;
-        //const closenessWeight = 0.25;
-        //const adaptabilityWeight = 0.20;
-        //const behavioralWeight = 0.15;
-        //const responsivenessWeight = 0.10;
         //Start by identifying and storing each genome's metrics
         for (let g = 0; g < this.genomes.length; g++) {
             const genomeMetrics = roundMetrics.filter(m => m.genomeIndex === g);
@@ -121,47 +100,35 @@ export class Population {
                 behavioral: 0,
                 responsiveness:0
             };
-            //REMOVE THIS LINE AFTER DONE REFACTORING
-            //let fitness = 0;
             genomeMetrics.forEach(r => {
             const npcStats = r.npc;
             const playerStats = r.player;
+            // Ensure no division by zero
+            const npcTime = Math.max(npcStats.timeSurvived, 0.001);
+            const playerTime = Math.max(playerStats.timeSurvived, 0.001);
+            const totalFrames = Math.max(npcStats.totalFrames, 1);
+            
             // FITNESS COMPONENT 1: [0, 1]
             const competitiveRatio = Math.min(npcStats.score / 
             Math.max(1, playerStats.score), 1.5);
-            //const competitiveTerm = competitiveRatio / 1.5;
             avgComponents.competitive += competitiveRatio / 1.5;
             // FITNESS COMPONENT 2: [0, 1]
             const scoreDiff = Math.abs(npcStats.score - playerStats.score);
-            //const closenessTerm = Math.max(0, (100 - scoreDiff * 2) / 100);
             avgComponents.closeness += Math.max(0, (100 - scoreDiff * 2) / 100);
             // FITNESS COMPONENT 3: [0, 1]
-            const scoreRatio = 0.5 * (npcStats.score / npcStats.timeSurvived) + 0.5 * (npcStats.score / (npcStats.score + playerStats.score));
-            const scoreRatioExpec = 0.5 * (playerStats.score / playerStats.timeSurvived) + 0.5 * (playerStats.score / (playerStats.score + npcStats.score)); 
-            //let adaptabilityTerm = Math.max(0, (100 - Math.abs((scoreRatio * 100) - (scoreRatioExpec * 100))) / 100);
+            const scoreRatio = 0.5 * (npcStats.score / npcTime) + 0.5 * (npcStats.score / (npcStats.score + playerStats.score));
+            const scoreRatioExpec = 0.5 * (playerStats.score / playerTime) + 0.5 * (playerStats.score / (playerStats.score + npcStats.score)); 
             avgComponents.adaptability += Math.max(0, (100 - Math.abs((scoreRatio * 100) - (scoreRatioExpec * 100))) / 100);
             // FITNESS COMPONENT 4: [0, 1]
             const accuracy =  (npcStats.targetsHit / Math.max(1, npcStats.ballsThrown));
-            const avoidance = (npcStats.framesSafeDistance / npcStats.totalFrames);
-            //let behavioralTerm = (accuracy + avoidance) / 200;
+            const avoidance = (npcStats.safeFrames / totalFrames);
             avgComponents.behavioral += (accuracy + avoidance) / 2;
             // FITNESS COMPONENT 5: [0, 1]
-            const latencyScore = inverseRangeScore(npcStats.avgActionLatency, 0.05, 0.3); //Adjusted to no longer compare to player but rather measure based on an acceptable range
-            const jumpScore = rangeScore(npcStats.measuredJumpFrequency, 3, 7);
-            const turnScore = rangeScore(npcStats.turnSpeed, 5, 10);
-            avgComponents.responsiveness += (latencyScore + jumpScore + turnScore) / 3;
-            //const latencyScore = Math.max(0, 100 - npcStats.avgActionLatency * 10);
-            //const jumpScore = Math.max(0, 100 - Math.abs(npcStats.measuredJumpFrequency - playerStats.jumpFrequency));
-            //const turnScore = Math.max(0, 100 - Math.abs(npcStats.turnSpeed - playerStats.turnSpeed) * 5);
-            //let responsivenessTerm = (latencyScore + jumpScore + turnScore) / 300;
-            //avgComponents.responsiveness += (latencyScore + jumpScore + turnScore) / 3;
-            // FINAL WEIGHTED FITNESS: [0, 5]
-            //fitness = (competitiveWeight * competitiveTerm) +
-              //         (closenessWeight * closenessTerm) +
-                //       (adaptabilityWeight * adaptabilityTerm) +
-                  //     (behavioralWeight * behavioralTerm) +
-                    //   (responsivenessWeight * responsivenessTerm);
-            
+            const latencyScore = inverseRangeScore(npcStats.avgActionLatency || 0.1, 0.05, 0.3);
+            const jumpScore = rangeScore(npcStats.measuredJumpFrequency || 4, 3, 7);
+            const turnScore = rangeScore(npcStats.turnSpeed || 5, 5, 10);
+            const responsiveness = (isNaN(latencyScore) ? 0 : latencyScore) + (isNaN(jumpScore) ? 0 : jumpScore) + (isNaN(turnScore) ? 0 : turnScore);
+            avgComponents.responsiveness += responsiveness / 3;
             });
             //Divide by number of rounds to get average
             for (let key in avgComponents) {
@@ -183,10 +150,11 @@ export class Population {
             //Recompute Weighted Total Fitness
             let totalFitness = 0;
             for (let key in genome.metrics) {
-                totalFitness += genome.metrics[key] * weights[key];
+                const componentValue = isNaN(genome.metrics[key]) ? 0 : genome.metrics[key];
+                totalFitness += componentValue * weights[key];
             }
             //Store In Population Object For Reference
-            genome.fitness = totalFitness * 5;
+            genome.fitness = isNaN(totalFitness) ? 0 : totalFitness * 5;
             this.fitnessScores[g] = genome.fitness;
             //this.fitnessScores[g] = genomeMetrics.length > 0 ? fitness * 5 : 0;
         }//REMOVE BELOW ONCE TESTED THE ABOVE SETUP
@@ -222,11 +190,11 @@ export class Population {
     }
     findLowestFitnessIndex() {
         const kPercent = 0.2;
-        const k = Math.max(1, Math.floor(this.length * kPercent));
+        const k = Math.max(1, Math.floor(this.genomes.length * kPercent));
         let lowestIndex = 0;
         //let lowestFitness = this.fitnessScores[0];
         //Sort by fitness ascending worst to best
-        const sortedFitness = this.map((_, i) => i)
+        const sortedFitness = Array.from({length: this.genomes.length}, (_, i) => i)
         .sort((a,b) => this.genomes[a].fitness - this.genomes[b].fitness);
         //Take indices of worst k%
         const worstPool = sortedFitness.slice(0, k);
@@ -240,13 +208,38 @@ export class Population {
         }*/
         return lowestIndex;
     }
+    findBestGenomeIndex() {
+        let bestIndex = 0;
+        let bestFitness = this.genomes[0].fitness;
+        for (let i = 1; i < this.genomes.length; i++) {
+            if (this.genomes[i].fitness > bestFitness) {
+                bestFitness = this.genomes[i].fitness;
+                bestIndex = i;
+            }
+        }
+        return bestIndex;
+    }
+    findLowestFitnessIndexExcludingBest(bestIndex) {
+        //Sort all genomes by fitness ascending (worst to best), excluding the best
+        const sortedByFitness = Array.from({length: this.genomes.length}, (_, i) => i)
+            .filter(i => i !== bestIndex)
+            .sort((a, b) => this.genomes[a].fitness - this.genomes[b].fitness);
+        // Return the single worst (first element)
+        return sortedByFitness[0];
+    }
+    getIndicesOfWorstGenomes(bestIndex, count) {
+        // Get indices of the N worst genomes, excluding the best
+        const sortedByFitness = Array.from({length: this.genomes.length}, (_, i) => i)
+            .filter(i => i !== bestIndex)
+            .sort((a, b) => this.genomes[a].fitness - this.genomes[b].fitness);
+        return sortedByFitness.slice(0, count);
+    }
     tournamentSelection() {
         // Implement selection logic (e.g., tournament selection, roulette wheel)
-        // For simplicity, we'll just return two random genomes here
         const selectionSize = 3;
         let bestIndividual = null;
         let bestIndex = -1;
-        for (i = 0; i < selectionSize; i++) {
+        for (let i = 0; i < selectionSize; i++) {
             //Randomly select a genome from the population and compare fitness
             const randomIndex = Math.floor(Math.random() * this.genomes.length);
             if (bestIndividual === null || this.fitnessScores[randomIndex] > this.fitnessScores[bestIndex]) {
@@ -254,13 +247,9 @@ export class Population {
                 bestIndex = randomIndex;
             }
         }
-        //const parentA = this.genomes[Math.floor(Math.random() * this.genomes.length)];
-        //const parentB = this.genomes[Math.floor(Math.random() * this.genomes.length)];
         return {genome: bestIndividual, index: bestIndex, fitness: this.fitnessScores[bestIndex]};
     }
-    evolveGeneration() {
-        // Evaluate fitness of all genomes
-        //const fitnessScores = this.genomes.map(genome => this.evaluateFitness(npc, targets, enemies));
+    evolveGenerationWithElitism(bestIndex) {
         //SELECT PARENTS THROUGH TOURNAMENT SELECTION
         const parentA = this.tournamentSelection();
         const parentB = this.tournamentSelection();
@@ -273,11 +262,14 @@ export class Population {
         child.metrics = null;
         child.fitness = 0;
         child.evaluations = 0;
-        //REPLACE WORST GENOME IN CURRENT POPULATION: Worst chosen from bottom 20%
-        const lowestIndex = this.findLowestFitnessIndex();
+        //REPLACE WORST GENOME IN CURRENT POPULATION (excluding best): Find single worst
+        const lowestIndex = this.findLowestFitnessIndexExcludingBest(bestIndex);
+        console.log("Replacing genome at index", lowestIndex, "with fitness", this.genomes[lowestIndex].fitness, "-> new child");
+        const parentFitness = this.genomes[lowestIndex].fitness; // Inherit fitness from replaced genome
         this.genomes[lowestIndex] = child;
-        // Reset fitness scores for the next evaluation (since population changed)
-        //this.fitnessScores = new Array(this.genomes.length).fill(0);
+        // UPDATE fitnessScores array to keep in sync with population
+        // Use parent's fitness to avoid child being selected as "worst" on next iteration
+        this.fitnessScores[lowestIndex] = parentFitness;
     }
 }
 function roundTo(num, dec) {
@@ -287,7 +279,7 @@ function roundTo(num, dec) {
 function gaussianRandom(mean = 0, stdDev = 1) {
     const u1 = Math.random();
     const u2 = Math.random();
-    const z0 = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.Pi * u2);
+    const z0 = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
     return z0 * stdDev + mean;
 }
 function generateUniqueId() {

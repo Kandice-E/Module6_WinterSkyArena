@@ -2,11 +2,21 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { throwBall } from './gamePhysics';
 
+// Module-level variable to hold current playerStats reference
+let currentPlayerStats = null;
+
+// Setter function to update playerStats reference when metrics are reset
+function setCurrentPlayerStats(stats) {
+    currentPlayerStats = stats;
+}
+
 function addControls(camera, domElement) {
     const orbitControls = new OrbitControls(camera, domElement);
     return orbitControls;
 }
-function eventListeners(mouseTime, keyStates, camera, spheres, sphereIdx, player) {
+function eventListeners(mouseTime, keyStates, camera, spheres, sphereIdx, player, playerStats) {
+    // Initialize currentPlayerStats with the initial reference
+    currentPlayerStats = playerStats;
     document.addEventListener( 'keydown', ( event ) => {
         if ( event.key === ' ' ) {
             console.log("Space bar pressed!");
@@ -29,7 +39,15 @@ function eventListeners(mouseTime, keyStates, camera, spheres, sphereIdx, player
         mouseTime = performance.now();
     } );
     document.addEventListener( 'mouseup', () => {
-        if ( document.pointerLockElement !== null ) throwBall(spheres, sphereIdx, camera, mouseTime, player);
+        if ( document.pointerLockElement !== null ) {
+            throwBall(spheres, sphereIdx, camera, mouseTime, player);
+            // Track player ball throw in playerStats (access current module-level reference)
+            currentPlayerStats.ballsThrown += 1;
+            console.log(`[PLAYER THROW] balls thrown now: ${currentPlayerStats.ballsThrown}`);
+            // Track player action latency (time from mouse down to mouse up = throw charge time)
+            const throwLatency = (performance.now() - mouseTime) / 1000; // Convert ms to seconds
+            currentPlayerStats.actionLatencies.push(throwLatency);
+        }
     } );
     document.body.addEventListener( 'mousemove', ( event ) => {
         if ( document.pointerLockElement === document.body ) {
@@ -81,4 +99,4 @@ function getSideVector(camera, player) {
     player.getDirection().cross( camera.up );
     return player.getDirection();
 }
-export { addControls, controls, eventListeners };
+export { addControls, controls, eventListeners, setCurrentPlayerStats };

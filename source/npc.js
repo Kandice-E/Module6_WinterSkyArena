@@ -56,8 +56,8 @@ export class NPC {
         this.baseSpeed = 2.5; // base movement speed
         this.timeSurvived = 0; // For fitness evaluation
         this.targetsHit = 0; // For fitness evaluation
-        this.framesSafeDistance = 0; // For fitness evaluation
-        this.totalFrames = 0; // For fitness evaluation
+        // NOTE: totalFrames and framesSafeDistance tracking moved to npcStats in collectLiveMetrics()
+        // This ensures proper reset between genome tests
         this.framesSinceTargetDetection = 0; // For Fitness evaluation
         this.actionLatencies = []; // For fitness evaluation
         this.lastActionLatency = 0;
@@ -68,7 +68,8 @@ export class NPC {
         return out.copy(this.collider.start).add(this.collider.end).multiplyScalar(0.5);
     }
     update(delta, worldOctree, targets, enemies, spawnBallFn, time, GRAVITY = 30) {
-        this.totalFrames += 1;
+        // Note: totalFrames and framesSafeDistance are tracked in collectLiveMetrics (main.js) not here
+        // This prevents duplicate tracking and ensures proper reset between genome tests
         this.framesSinceTargetDetection += 1;
         const center = this.getCenter();
         // Select target within radius
@@ -137,7 +138,7 @@ export class NPC {
         //console.log("Logging whether the player is on the floor before gravity is applied:>>>>>>", result);
         // DEBUG: Log collision results
         if (time % 1 < delta) {
-        console.log(`Collision result:`, result ? "HIT" : "MISS");
+        //console.log(`Collision result:`, result ? "HIT" : "MISS");
         }
         this.onFloor = false;
         if (result) {
@@ -151,12 +152,13 @@ export class NPC {
         }
         // Sync mesh
         this.mesh.position.copy(this.getCenter());
-        //
-        if (this.isNpcFarFromAllEnemies(enemies)) {
-            this.framesSafeDistance += 1;
-        }
+        // Safe distance tracking is done in collectLiveMetrics (main.js) not here
+        // This ensures proper reset between genome tests
         // Throwing balls
-        if (time - this.lastThrow > this.behavior.ballThrowFrequency && this.targetIndex >= 0) {
+        const timeSinceLastThrow = time - this.lastThrow;
+        const shouldThrow = timeSinceLastThrow > this.behavior.ballThrowFrequency && this.targetIndex >= 0;
+        
+        if (shouldThrow) {
             this.lastThrow = time;
             this.ballsThrown += 1; // Increment ball throw counter
             const spawnPos = center.clone().add(new THREE.Vector3(0, 0.9, 0));
@@ -173,7 +175,7 @@ export class NPC {
             this.lastTargetIndex = this.targetIndex; // Update after recording latency
         }
     }
-    isNpcFarFromAllEnemies(enemies) {
+    isNpcFarFromAllEnemies(enemies) {// Note: This method is called from collectLiveMetrics() in main.js to evaluate fitness component of enemy avoidance   
         if (!enemies || enemies.length === 0) return true; // Safe if no enemies
         return enemies.every(e => this.getCenter().distanceTo(e.collider.center) >= this.behavior.enemyAvoidanceDistance);
     }

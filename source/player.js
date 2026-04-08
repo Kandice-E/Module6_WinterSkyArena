@@ -3,13 +3,13 @@ import { Capsule } from 'three/examples/jsm/math/Capsule.js';
 
 export class Player {
     constructor(){
-        this.velocity = new THREE.Vector3(1,1,1),
-        this.direction = new THREE.Vector3(1,1,1),
+        this.velocity = new THREE.Vector3(0, 0, 0),
+        this.direction = new THREE.Vector3(1, 0, 0),
         this.onFloor = false,
-        this.timeSurvived = 1,
-        this.jumpFrequency = 1,
-        this.jumpCount = 1,
-        this.turnSpeed = 1,
+        this.timeSurvived = 0,
+        this.jumpFrequency = 0,
+        this.jumpCount = 0,
+        this.turnSpeed = 0,
         this.score = 0,
         this.numberOfLives = 2,
         this.collider = new Capsule(
