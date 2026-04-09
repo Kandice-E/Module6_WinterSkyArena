@@ -160,42 +160,43 @@ function checkForEnemyCollisions(npcCollider, enemies, camera, player, score, np
         }
     }
 }
-function checkBallTargetCollisions(spheres, targets, score, npc, worldOctree, player, playerStats) {
+function checkBallTargetCollisions(spheres, targets, score, npcs, worldOctree, player, playerStats) {
     spheres.forEach (sphere => {
         for (const target of targets) {
             const distance = sphere.collider.center.distanceTo(target.collider.center);
             const combinedRadius = sphere.collider.radius + target.collider.radius;
             if (distance < combinedRadius) {
-                if (target === targets[npc.targetIndex] && npc.lastBallIndex === spheres.indexOf(sphere)) {
-                    console.log("NPC hit a target!");
-                    score.npcCounter += 1;
-                    npc.score += 1;
-                    npc.targetsHit += 1;
-                }
-                else if (target === targets[npc.targetIndex] && npc.lastBallIndex !== spheres.indexOf(sphere)) {
-                    //console.log("Player hit a target!");
+                // Check if an NPC threw this ball
+                if (sphere.throwerNpcIndex >= 0 && sphere.throwerNpcIndex < npcs.length) {
+                    const npc = npcs[sphere.throwerNpcIndex];
+                    if (target === targets[npc.targetIndex]) {
+                        // NPC hit its target
+                        console.log(`NPC ${sphere.throwerNpcIndex} hit a target!`);
+                        score.npcCounter += 1;
+                        npc.score += 1;
+                        npc.targetsHit += 1;
+                    } else {
+                        // NPC hit wrong target, player gets points
+                        console.log("Player hit a target!");
+                        score.counter += 1;
+                        player.score += 1;
+                        if (playerStats) {
+                            playerStats.targetsHit += 1;
+                        }
+                        npc.targetIndex = -1; // Force NPC to pick new target
+                    }
+                } else {
+                    // Player threw this ball
+                    console.log("Player hit a target!");
                     score.counter += 1;
                     player.score += 1;
-                    // Track player target hit for metrics
                     if (playerStats) {
                         playerStats.targetsHit += 1;
                     }
-                    // Reset NPC Target Index To Force It To Select A New Target
-                    npc.targetIndex = -1;
                 }
-                else {
-                    //console.log("Player hit a target!");
-                    score.counter += 1;
-                    player.score += 1;
-                    // Track player target hit for metrics
-                    if (playerStats) {
-                        playerStats.targetsHit += 1;
-                    }
-                }
-                updateScoreDisplay(score); // Update the score display
-                // Move Target To A New Random Position
-                checkTargetWallCollisions(target, worldOctree); // Ensure the new target position is valid and not inside a wall
-                break; // Exit loop after first collision to prevent multiple hits on the same target
+                updateScoreDisplay(score);
+                checkTargetWallCollisions(target, worldOctree);
+                break;
             }
         }
     });

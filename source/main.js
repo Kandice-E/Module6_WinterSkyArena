@@ -44,13 +44,11 @@ const vector3 = new THREE.Vector3(); // Vector for collision detection
 // New Globals for Rounds and Metrics Collection
 let generationsCompleted = 0;
 const MAX_GENERATIONS = 1;
-let numGenomesTested = 0;
 let currentRound = 1;
-const MAX_ROUNDS = 3;
-const GENOMES_PER_ROUND = 2;
-let genomeSlotInRound = 0;
-let roundsComplete = 0;
-const MAX_ROUND_TIME = 75;
+const MAX_ROUNDS = 1; // 1 round per generation: all 6 genomes tested via 3 NPCs in parallel
+const NUM_NPCS = 3; // 3 NPCs running in parallel
+const GENOMES_PER_NPC = 2; // Each NPC tests 2 genomes
+let genomeSlotInRound = 0; // 0 or 1 (which genome slot we're testing across all NPCs)
 const genomeTestWindow = 30;
 let roundRunning = false;
 let roundTransitioning = false; // Flag to prevent continueRound from being called multiple times
@@ -61,30 +59,15 @@ let playerStats = {
     jumpCount: 0,
     turnAmount: 0,
     score: 0,
-    // Behavior tracking for player (same as NPC for comparison)
     ballsThrown: 0,
     targetsHit: 0,
     safeFrames: 0,
     totalFrames: 0,
-    actionLatencies: [],
-    closestEnemyDistance: Infinity,
-    averageEnemyDistance: 0,
-    targetApproachDistance: 0,
-    timeSpentAvoidingEnemies: 0
+    actionLatencies: []
 };
-let npcStats = {
-    startTime: 0,
-    timeSurvived: 0,
-    targetsHit: 0,
-    safeFrames: 0,
-    totalFrames: 0,
-    actionLatencies: [],
-    jumpCount: 0,
-    turnAmount: 0,
-    score: 0
-};
+// Array of metrics for each of the 3 NPCs (one object per NPC, reset each round)
+let npcMetricsArray = [];
 let generationalPopulation = new Population(6);
-let currentGenomeIndex = 0;
 let allGenerationsCSVData = []; // Accumulate CSV data across all generations
 export const collisionState = {
     lastPlayerEnemyCollisionTime: 0
@@ -138,15 +121,17 @@ for ( let i = 0; i < NUM_SPHERES; i ++ ) {
     } );
 }
 // Add NPC ball spawn function (called by NPC behavior when throwing a ball)
-function npcSpawnBall(origin, velocity) {
+// npcIndex indicates which of the 3 NPCs threw the ball
+function npcSpawnBall(origin, velocity, npcIndex) {
     const s = spheres[sphereIdx];
     s.mesh.visible = true;
     s.collider.center.copy(origin);
     s.mesh.position.copy(origin);
     s.velocity.copy(velocity);
-    const ballThrown = sphereIdx; // Store the index of the thrown ball for potential NPC tracking
+    s.throwerNpcIndex = npcIndex; // Track which NPC (0-2) threw this ball
+    const ballThrown = sphereIdx;
     sphereIdx = (sphereIdx + 1) % spheres.length;
-    return ballThrown; // Return the index of the thrown ball for NPC tracking
+    return ballThrown;
 }
 // Add Enemies
 const enemyGeometry = new THREE.SphereGeometry(ENEMY_RADIUS, 16, 16);
@@ -227,7 +212,7 @@ new HDRLoader().load('./assets/belfast_sunset_puresky_2k.hdr', function(skyTextu
 })
 let player = new Player();
 //console.log("Player created after world load: ", player.direction); //Debug Line
-let npc; // Declare npc variable here to ensure it's in scope for the game loop and other functions
+let npcs = []; // Array of 3 NPC instances
 // Load Game Model
 const loader = new GLTFLoader();
 loader.load('./assets/collision-world.glb', ( gltf ) => {
@@ -248,9 +233,13 @@ loader.load('./assets/collision-world.glb', ( gltf ) => {
                 console.log('Mesh name:', child.name);
             }
         });
-        // Create NPC after the world is loaded to ensure it has access to the octree for navigation
-        npc = new NPC({ scene, startPos: new THREE.Vector3(5, 0.75, 5) });
-        //console.log("NPC initialized after world load"); //Debug Line
+        // Create 3 NPCs after the world is loaded to ensure they have access to the octree for navigation
+        npcs = [];
+        for (let i = 0; i < NUM_NPCS; i++) {
+            const npc = new NPC({ scene, startPos: new THREE.Vector3(5 + i * 2, 0.75, 5 + i) });
+            npcs.push(npc);
+        }
+        //console.log("3 NPCs initialized after world load"); //Debug Line
     });
 // Add Snowflake Points
 const points = addSFPoints();
@@ -288,12 +277,12 @@ timerDisplay.innerText = '01:15'; // Initial timer value
 document.body.appendChild(timerDisplay);
 let roundStartTime;
 let timerInterval; // Variable to store the interval ID
-//let timeRemaining = MAX_ROUND_TIME; // 1.25 minutes in seconds
+//let timeRemaining = genomeTestWindow; // 30 seconds per genome slot
 function startTimer() {
     roundStartTime = performance.now();
     timerInterval = setInterval(() => {
         const timeElapsed = (performance.now() - roundStartTime) / 1000;
-        const timeRemaining = Math.max(0, MAX_ROUND_TIME - timeElapsed);
+        const timeRemaining = Math.max(0, genomeTestWindow - timeElapsed);
         const minutes = Math.floor(timeRemaining / 60);
         const seconds = Math.floor(timeRemaining % 60);
         // Update The Timer Display
@@ -438,165 +427,160 @@ startButton.addEventListener('click', () => {
     startScreen.style.display = 'none'; // Hide the start screen
     backgroundMusic.play(); // Start the background music
     roundRunning = true;
+    genomeSlotInRound = 0; // Start with slot 0 genomes
     resetMetricsForNextGenome(); // Initialize metrics with proper startTime for first round
     player.score = 0; // Reset player score
-    npc.score = 0; // Reset NPC score
-    startRound();
+    for (let i =0; i < NUM_NPCS; i++) {
+        npcs[i].score = 0; // Reset all NPC scores
+    }
+    startRound(true); // Show countdown for first slot
 });
 //-----END START GAME-----//
 
 // New function for round state logic: start, end, reset
 function startRound(showCountdown = true) {
-    roundTransitioning = false; // Reset transition flag
-    genomeSlotInRound += 1;
-    const genome = generationalPopulation.genomes[currentGenomeIndex];
-    npc.behavior = genome.behavior;
-    console.log("CURRENT NPC BEHAVIOR GENOME BEING TESTED: ", genome.behavior);
+    roundTransitioning = false;
     
-    // Reset NPC frame tracking for this test to prevent accumulation across rounds
-    npc.totalFrames = 0;
-    npc.actionLatencies.length = 0;
-    npc.framesSinceTargetDetection = 0;
+    // Assign genomes to all 3 NPCs based on current slot (0 or 1)
+    // NPC 0 tests genomes 0-1, NPC 1 tests genomes 2-3, NPC 2 tests genomes 4-5
+    for (let i = 0; i < NUM_NPCS; i++) {
+        const genomeIndex = i * GENOMES_PER_NPC + genomeSlotInRound;
+        const genome = generationalPopulation.genomes[genomeIndex];
+        npcs[i].behavior = genome.behavior;
+        npcs[i].targetIndex = -1;
+        npcs[i].actionLatencies.length = 0;
+        npcs[i].framesSinceTargetDetection = 0;
+    }
     
-    // CRITICAL: Create a fresh timer to prevent accumulated time from multiple rounds
-    // This prevents 2000+ fps after multiple rounds
+    // Create fresh timer
     timer = new THREE.Timer();
-    // Call getDelta() once to prime the timer so getElapsed() starts working
     timer.getDelta();
-    lastFrameTime = performance.now(); // Reset frame time tracking for deltaTime calculation
-    roundStartTime = performance.now(); // Track round start for NPC time tracking
-    frameCount = 0; // Reset frame counter
-    deltaTimeSum = 0; // Reset deltaTime sum
-    isFirstFrameOfRound = true; // Mark that the next frame will be the first frame
-    console.log("startRound: Created fresh timer, reset counters, set isFirstFrameOfRound to true");
+    lastFrameTime = performance.now();
+    frameCount = 0;
+    deltaTimeSum = 0;
+    isFirstFrameOfRound = true;
     
-    timerDisplay.innerText = '01:15'; // Reset timer display at the start of each round
-    //Update round display
-    roundDisplay.innerText = `Round: ${currentRound}/${MAX_ROUNDS}`;
-    console.log(`Player Score: ${score.counter} NPC Score: ${score.npcCounter}`); // Debugging line
-    console.log(`Player Score from Player Stats: ${playerStats.score} NPC Score from NPC Stats: ${npcStats.score}`); // Debugging line
+    timerDisplay.innerText = '00:30';
+    roundDisplay.innerText = `Round: ${currentRound}/${MAX_ROUNDS}, Slot: ${genomeSlotInRound + 1}/2`;
     
     if (showCountdown) {
-        // Show countdown only for new rounds
         showRoundCountdown(3, () => {
-        roundRunning = true;
-        // Resume background music if it's not already playing (for new generations)
-        if (backgroundMusic.paused) {
-            backgroundMusic.play();
-        }
-        startTimer(); // Start the timer
-        playerStats.startTime = performance.now(); // Initialize player stats timing
-        npcStats.startTime = performance.now();
-        animate();
+            roundRunning = true;
+            if (backgroundMusic.paused) {
+                backgroundMusic.play();
+            }
+            // Set startTime AFTER countdown finishes, right when gameplay begins
+            for (let i = 0; i < NUM_NPCS; i++) {
+                npcMetricsArray[i].startTime = performance.now();
+            }
+            roundStartTime = performance.now();
+            startTimer();
+            playerStats.startTime = performance.now();
+            animate();
         });
     } else {
-        // Skip countdown for genome transitions within the same round
         roundRunning = true;
         if (backgroundMusic.paused) {
             backgroundMusic.play();
         }
+        // Set startTime right when slot 1 gameplay begins (no countdown)
+        for (let i = 0; i < NUM_NPCS; i++) {
+            npcMetricsArray[i].startTime = performance.now();
+        }
+        roundStartTime = performance.now();
         startTimer();
         playerStats.startTime = performance.now();
-        npcStats.startTime = performance.now();
         animate();
     }
 }
-export function startNextRound() {
-    currentRound += 1;
-    roundsComplete += 1;
-    //updateMetrics();
-    resetMetricsForNextGenome();
-    player.score = 0; // Reset player score for next round
-    npc.score = 0; // Reset NPC score for next round
-    genomeSlotInRound = 0;
-    currentGenomeIndex += 1;
-    resetRound();
-    const currentGenome = generationalPopulation.genomes[currentGenomeIndex];
-    npc.behavior = currentGenome.behavior;
-    console.log("STARTING NEXT ROUND AFTER 2 GENOME TESTS:>>>>>>>>>");
-    startRound();
-    //showRoundCountdown(3, () => {
-        //startRound();
-    //});
-}
 function updateMetrics() {
-    const genomeId = generationalPopulation.genomes[currentGenomeIndex].id;
-    const genome = generationalPopulation.genomes[currentGenomeIndex];
-    
-    // Ensure timeSurvived is valid for division
-    const playerTimeSurvived = Math.max(playerStats.timeSurvived, 0.001); // Minimum 1ms to avoid divide-by-zero
-    const npcTimeSurvived = Math.max((performance.now() - npcStats.startTime) / 1000, 0.001);
+    // Player metrics (collected once, shared across all NPCs)
+    const playerTimeSurvived = Math.max(playerStats.timeSurvived, 0.001);
     const playerTotalFrames = Math.max(playerStats.totalFrames, 1);
-    const npcTotalFrames = Math.max(npcStats.totalFrames, 1);
-    
-    console.log(`[END ROUND ${currentRound}] Player: ${playerStats.ballsThrown} throws, ${playerStats.jumpCount} jumps | NPC: ${npcStats.ballsThrown} throws, ${npcStats.jumpCount} jumps`);
-    
-    // Calculate derived player behavior metrics
     const playerThrowFrequency = playerStats.ballsThrown > 0 ? playerTimeSurvived / playerStats.ballsThrown : 0;
     const playerAvoidanceRatio = playerStats.safeFrames / playerTotalFrames;
     const playerAvgActionLatency = playerStats.actionLatencies.length > 0 
         ? playerStats.actionLatencies.reduce((a,b)=>a+b) / playerStats.actionLatencies.length 
         : 0;
     
-    // Calculate derived NPC behavior metrics
-    const npcThrowFrequency = npcStats.ballsThrown > 0 ? npcTimeSurvived / npcStats.ballsThrown : 0;
-    const npcAvoidanceRatio = npcStats.safeFrames / npcTotalFrames;
-    const npcAvgActionLatency = npcStats.actionLatencies.length > 0
-        ? npcStats.actionLatencies.reduce((a,b)=>a+b) / npcStats.actionLatencies.length
-        : 0;
+    // For each NPC, create a metrics entry (one per genome tested)
+    for (let npcIdx = 0; npcIdx < NUM_NPCS; npcIdx++) {
+        const npcStats = npcMetricsArray[npcIdx];
+        
+        // Calculate genome index based on NPC index and current slot
+        const genomeIndex = npcIdx * GENOMES_PER_NPC + genomeSlotInRound;
+        const genome = generationalPopulation.genomes[genomeIndex];
+        const genomeId = genome.id;
+        
+        // NPC metrics for this slot
+        const npcTimeSurvived = Math.max(npcStats.timeSurvived, 0.001);
+        const npcTotalFrames = Math.max(npcStats.totalFrames, 1);
+        
+        // Calculate derived NPC behavior metrics
+        const npcThrowFrequency = npcStats.ballsThrown > 0 ? npcTimeSurvived / npcStats.ballsThrown : 0;
+        const npcAvoidanceRatio = npcStats.safeFrames / npcTotalFrames;
+        const npcAvgActionLatency = npcStats.actionLatencies.length > 0
+            ? npcStats.actionLatencies.reduce((a,b)=>a+b) / npcStats.actionLatencies.length
+            : 0;
+        
+        console.log(`[SLOT ${genomeSlotInRound} NPC ${npcIdx}] Genome ${genomeIndex}: Throws: ${npcStats.ballsThrown}, Targets: ${npcStats.targetsHit}, Jumps: ${npcStats.jumpCount}`);
+        
+        roundMetrics.push({
+            round: currentRound,
+            slot: genomeSlotInRound,
+            npcIndex: npcIdx,
+            genomeIndex: genomeIndex,
+            player: {
+                timeSurvived: playerStats.timeSurvived,
+                jumpFrequency: playerStats.jumpCount / playerTimeSurvived,
+                measuredjumpFrequency: playerStats.jumpCount > 0 ? playerTimeSurvived / playerStats.jumpCount : 0,
+                turnSpeed: playerStats.turnAmount / playerTimeSurvived,
+                score: playerStats.score,
+                ballsThrown: playerStats.ballsThrown,
+                targetsHit: playerStats.targetsHit,
+                throwFrequency: playerThrowFrequency,
+                safeFrames: playerStats.safeFrames,
+                totalFrames: playerTotalFrames,
+                avoidanceRatio: playerAvoidanceRatio,
+                closestEnemyDistance: playerStats.closestEnemyDistance,
+                averageEnemyDistance: playerStats.averageEnemyDistance,
+                avgActionLatency: playerAvgActionLatency,
+                timeAvoidingEnemies: playerStats.timeSpentAvoidingEnemies
+            },
+            npc: {
+                timeSurvived: npcTimeSurvived,
+                targetsHit: npcStats.targetsHit,
+                framesSafeDistance: npcStats.safeFrames,
+                totalFrames: npcTotalFrames,
+                ballsThrown: npcStats.ballsThrown,
+                throwFrequency: npcThrowFrequency,
+                avgActionLatency: npcAvgActionLatency,
+                measuredJumpFrequency: npcStats.jumpCount / npcTimeSurvived,
+                turnSpeed: npcStats.turnAmount / npcTimeSurvived,
+                score: npcStats.score,
+                avoidanceRatio: npcAvoidanceRatio
+            },
+            genomeId: genomeId,
+            behavior: {
+                jumpFrequency: genome.behavior.jumpFrequency,
+                ballThrowPower: genome.behavior.ballThrowPower,
+                ballThrowFrequency: genome.behavior.ballThrowFrequency,
+                targetSelectionRadius: genome.behavior.targetSelectionRadius,
+                enemyAvoidanceDistance: genome.behavior.enemyAvoidanceDistance,
+                movementSpeedMultiplier: genome.behavior.movementSpeedMultiplier
+            },
+            // Behavior comparison: how NPC compares to player
+            behaviorComparison: {
+                npcVsPlayerJumpRatio: playerStats.jumpCount > 0 ? (npcStats.jumpCount / npcTimeSurvived) / (playerStats.jumpCount / playerTimeSurvived) : 0,
+                npcVsPlayerThrowRatio: playerStats.ballsThrown > 0 ? (npcStats.ballsThrown / npcTimeSurvived) / (playerStats.ballsThrown / playerTimeSurvived) : 0,
+                npcVsPlayerAvoidanceRatio: playerAvoidanceRatio > 0 ? npcAvoidanceRatio / playerAvoidanceRatio : 0,
+                npcVsPlayerTurnRatio: playerStats.turnAmount > 0 ? (npcStats.turnAmount / npcTimeSurvived) / (playerStats.turnAmount / playerTimeSurvived) : 0,
+                scoreRatio: playerStats.score > 0 ? npcStats.score / playerStats.score : 0
+            }
+        });
+    }
     
-    roundMetrics.push({
-        round: currentRound,
-        genomeIndex: currentGenomeIndex,
-        player: {
-            timeSurvived: playerStats.timeSurvived,
-            jumpFrequency: playerStats.jumpCount / playerTimeSurvived,
-            measuredjumpFrequency: playerStats.jumpCount > 0 ? playerTimeSurvived / playerStats.jumpCount : 0,
-            turnSpeed: playerStats.turnAmount / playerTimeSurvived,
-            score: playerStats.score,
-            ballsThrown: playerStats.ballsThrown,
-            targetsHit: playerStats.targetsHit,
-            throwFrequency: playerThrowFrequency,
-            safeFrames: playerStats.safeFrames,
-            totalFrames: playerTotalFrames,
-            avoidanceRatio: playerAvoidanceRatio,
-            closestEnemyDistance: playerStats.closestEnemyDistance,
-            averageEnemyDistance: playerStats.averageEnemyDistance,
-            avgActionLatency: playerAvgActionLatency,
-            timeAvoidingEnemies: playerStats.timeSpentAvoidingEnemies
-        },
-        npc: {
-            timeSurvived: npcTimeSurvived,
-            targetsHit: npcStats.targetsHit,
-            framesSafeDistance: npcStats.safeFrames,
-            totalFrames: npcTotalFrames,
-            ballsThrown: npcStats.ballsThrown,
-            throwFrequency: npcThrowFrequency,
-            avgActionLatency: npcAvgActionLatency,
-            measuredJumpFrequency: npcStats.jumpCount / npcTimeSurvived,
-            turnSpeed: npcStats.turnAmount / npcTimeSurvived,
-            score: npcStats.score,
-            avoidanceRatio: npcAvoidanceRatio
-        },
-        genomeId: genomeId,
-        behavior: {
-            jumpFrequency: genome.behavior.jumpFrequency,
-            ballThrowPower: genome.behavior.ballThrowPower,
-            ballThrowFrequency: genome.behavior.ballThrowFrequency,
-            targetSelectionRadius: genome.behavior.targetSelectionRadius,
-            enemyAvoidanceDistance: genome.behavior.enemyAvoidanceDistance,
-            movementSpeedMultiplier: genome.behavior.movementSpeedMultiplier
-        },
-        // Behavior comparison: how NPC compares to player
-        behaviorComparison: {
-            npcVsPlayerJumpRatio: (npcStats.jumpCount / npcTimeSurvived) / (playerStats.jumpCount / playerTimeSurvived),
-            npcVsPlayerThrowRatio: playerStats.ballsThrown > 0 ? (npcStats.ballsThrown / npcTimeSurvived) / (playerStats.ballsThrown / playerTimeSurvived) : 0,
-            npcVsPlayerAvoidanceRatio: playerAvoidanceRatio > 0 ? npcAvoidanceRatio / playerAvoidanceRatio : 0,
-            npcVsPlayerTurnRatio: (npcStats.turnAmount / npcTimeSurvived) / (playerStats.turnAmount / playerTimeSurvived),
-            scoreRatio: playerStats.score > 0 ? npcStats.score / playerStats.score : 0
-        }
-    });
-    console.log(`[ROUND ${currentRound} SAVED] Player throws: ${playerStats.ballsThrown}, NPC throws: ${npcStats.ballsThrown}`);
+    console.log(`[SLOT ${genomeSlotInRound} SAVED] Created 3 metrics entries for genomes ${genomeSlotInRound === 0 ? '0,2,4' : '1,3,5'}`);
 }
 function resetRound() {
     resetNpcPosition();
@@ -643,24 +627,28 @@ function repositionTargets() {
     }
 }
 function resetNpcPosition() {
-    npc.collider.start.set(0.6,0.35,0.6);
-    npc.collider.end.set(0.6,1,0.6);
-    npc.velocity.set(0,0,0);
-    npc.framesSinceTargetDetection = 0;
-    npc.lastActionLatency = 0;
-    npc.actionLatencies.length = 0;
-    npc.targetsHit = 0; // Reset targets hit counter
-    npc.jumpCount = 0; // Reset jump counter
-    npc.turnAmount = 0; // Reset turn amount
-    npc.ballsThrown = 0; // Reset balls thrown counter
-    npc.lastJump = 0; // Reset jump timing to allow immediate jump
-    npc.lastThrow = 0; // Reset throw timing to allow immediate throw
-    npc.targetIndex = -1; // Reset target selection
-    npc.lastTargetIndex = 0;
+    // Reset all 3 NPCs
+    for (let i = 0; i < NUM_NPCS; i++) {
+        const npc = npcs[i];
+        npc.collider.start.set(0.6 + i * 2, 0.35, 0.6 + i);
+        npc.collider.end.set(0.6 + i * 2, 1, 0.6 + i);
+        npc.velocity.set(0, 0, 0);
+        npc.framesSinceTargetDetection = 0;
+        npc.lastActionLatency = 0;
+        npc.actionLatencies.length = 0;
+        npc.targetsHit = 0;
+        npc.jumpCount = 0;
+        npc.turnAmount = 0;
+        npc.ballsThrown = 0;
+        npc.lastJump = 0;
+        npc.lastThrow = 0;
+        npc.targetIndex = -1;
+        npc.lastTargetIndex = 0;
+        npc.mesh.position.copy(npc.getCenter());
+    }
 }
 
 function resetMetricsForNextGenome() {
-    console.log(">>> RESETTING METRICS FOR NEXT GENOME. Old playerStats.totalFrames was:", playerStats.totalFrames, "Old npcStats.totalFrames was:", npcStats.totalFrames);
     playerStats = {
         startTime: performance.now(),
         timeSurvived: 0,
@@ -671,27 +659,25 @@ function resetMetricsForNextGenome() {
         targetsHit: 0,
         safeFrames: 0,
         totalFrames: 0,
-        actionLatencies: [],
-        closestEnemyDistance: Infinity,
-        averageEnemyDistance: 0,
-        targetApproachDistance: 0,
-        timeSpentAvoidingEnemies: 0
+        actionLatencies: []
     };
-    // Update the module-level reference in controls.js so event listeners use new playerStats
     setCurrentPlayerStats(playerStats);
-    npcStats = {
-        startTime: performance.now(),
-        timeSurvived: 0,
-        targetsHit: 0,
-        safeFrames: 0,
-        totalFrames: 0,
-        ballsThrown: 0,
-        actionLatencies: [],
-        jumpCount: 0,
-        turnAmount: 0,
-        score: 0
-    };
-    console.log(">>> New playerStats.totalFrames is:", playerStats.totalFrames, "New npcStats.totalFrames is:", npcStats.totalFrames);
+    
+    // Initialize metrics array for 3 NPCs
+    npcMetricsArray = [];
+    for (let i = 0; i < NUM_NPCS; i++) {
+        npcMetricsArray.push({
+            startTime: performance.now(),
+            timeSurvived: 0,
+            targetsHit: 0,
+            safeFrames: 0,
+            totalFrames: 0,
+            actionLatencies: [],
+            jumpCount: 0,
+            turnAmount: 0,
+            score: 0
+        });
+    }
 }
 // Function to export metrics to CSV
 function exportMetricsToCSV() {
@@ -850,7 +836,7 @@ function completeGeneration() {
     }
     generationalPopulation.evaluateFitness(roundMetrics);
     generationsCompleted += 1;
-  if (generationsCompleted < MAX_GENERATIONS) {
+  if (generationsCompleted <= MAX_GENERATIONS) {
     exportMetricsToCSV();
     // Find the best genome and protect it (elitism)
     const bestGenomeIndex = generationalPopulation.findBestGenomeIndex();
@@ -892,7 +878,6 @@ function completeGeneration() {
         console.log(`Genome ${i}:`, {id: g.id, jumpFreq: g.behavior.jumpFrequency, ballPower: g.behavior.ballThrowPower, fitness: g.fitness});
     });
     
-    currentGenomeIndex = 0;
     currentRound = 1;
     genomeSlotInRound = 0;
     roundMetrics = [];
@@ -907,83 +892,60 @@ function completeGeneration() {
   }
 }
 function collectLiveMetrics(deltaTime) {
-    // Increment Player Stats from Player object
+    // Collect player metrics
     playerStats.timeSurvived = (performance.now() - playerStats.startTime) / 1000;
-    playerStats.jumpCount = player.jumpCount; // Capture current jump count (not accumulate)
+    playerStats.jumpCount = player.jumpCount;
     playerStats.turnAmount += Math.abs(camera.rotation.y - lastCameraY);
-    playerStats.score = player.score; // Current score at this moment
-    playerStats.totalFrames += 1; // Track frames for player like NPC
+    playerStats.score = player.score;
+    playerStats.totalFrames += 1;
     lastCameraY = camera.rotation.y;
     
-    // Calculate player distance from enemies (for avoidance behavior comparison)
-    let totalEnemyDistance = 0;
-    let closestDistance = Infinity;
-    for (let enemy of enemies) {
-        const distance = player.collider.start.distanceTo(enemy.mesh.position);
-        totalEnemyDistance += distance;
-        closestDistance = Math.min(closestDistance, distance);
+    // Collect metrics for all 3 NPCs
+    for (let i = 0; i < NUM_NPCS; i++) {
+        const npc = npcs[i];
+        const stats = npcMetricsArray[i];
+        
+        stats.timeSurvived = (performance.now() - stats.startTime) / 1000;
+        stats.targetsHit = npc.targetsHit;
+        stats.totalFrames += 1;
+        if (npc.isNpcFarFromAllEnemies(enemies)) {
+            stats.safeFrames += 1;
+        }
+        stats.score = npc.score;
+        if (npc.lastActionLatency != null) {
+            stats.actionLatencies.push(npc.lastActionLatency);
+            npc.lastActionLatency = null;
+        }
+        stats.ballsThrown = npc.ballsThrown;
+        stats.jumpCount = npc.jumpCount;
+        stats.turnAmount = npc.turnAmount;
     }
-    playerStats.closestEnemyDistance = closestDistance;
-    playerStats.averageEnemyDistance = enemies.length > 0 ? totalEnemyDistance / enemies.length : 0;
     
-    // Track when player is safe from enemies (for comparison with NPC avoidance)
-    const PLAYER_SAFE_DISTANCE = 10; // Units away from nearest enemy
-    if (closestDistance >= PLAYER_SAFE_DISTANCE) {
-        playerStats.safeFrames += 1;
-    } else {
-        playerStats.timeSpentAvoidingEnemies += deltaTime;
-    }
-    
-    // Increment NPC Stats from NPC object
-    npcStats.timeSurvived = (performance.now() - npcStats.startTime) / 1000;
-    npcStats.targetsHit = npc.targetsHit; // Capture current targets hit count
-    npcStats.totalFrames += 1;
-    // Only increment safe frames when NPC is actually safe from all enemies
-    if (npc.isNpcFarFromAllEnemies(enemies)) {
-        npcStats.safeFrames += 1;
-    }
-    // Use actionLatencies from NPC object (don't overwrite)
-    npcStats.score = npc.score; // Current score at this moment
-    if (npc.lastActionLatency != null) {
-        npcStats.actionLatencies.push(npc.lastActionLatency);
-        npc.lastActionLatency = null;
-    }
-    npcStats.ballsThrown = npc.ballsThrown; // Capture ball throw counter
-    npcStats.jumpCount = npc.jumpCount; // Capture current jump count
-    npcStats.turnAmount = npc.turnAmount; // Capture current turn amount
-    
-    // Check for npc testing window limit reached
-    //console.log("----------COLLECTING LIVE METRICS----------: ", npcStats.timeSurvived);
-    if (npcStats.timeSurvived >= genomeTestWindow && !roundTransitioning) {
+    // Check if ANY NPC has completed the 30-second test window
+    if (npcMetricsArray.length > 0 && npcMetricsArray[0].timeSurvived >= genomeTestWindow && !roundTransitioning) {
         roundTransitioning = true;
         continueRound();
     }
 }
 export function continueRound() {
     updateMetrics();
-    
-    // Do NOT stop the animation loop yet - let it continue to finish this frame
-    // Only cancel timer to prevent double-firing
     clearInterval(timerInterval);
     
-    if (genomeSlotInRound < GENOMES_PER_ROUND) {
-            // Testing second genome in same round - skip countdown
-            genomeSlotInRound += 1;
-            currentGenomeIndex += 1;
-            resetMetricsForNextGenome();
-            player.score = 0; // Reset player score for next genome test
-            npc.score = 0; // Reset NPC score for next genome test
-            resetNpcPosition();
-            console.log("Previous Genome: ", npc.behavior);
-            const currentGenome = generationalPopulation.genomes[currentGenomeIndex];
-            npc.behavior = currentGenome.behavior;
-            console.log("Current Genome After Updating to Second Test Genome: ", npc.behavior);
-            startRound(false); // false = don't show countdown for genome transition
-        } else if (currentRound < MAX_ROUNDS) {
-            startNextRound();
-        } else {
-            completeGeneration();
+    if (genomeSlotInRound < GENOMES_PER_NPC - 1) {
+        // Move to next slot (0 -> 1)
+        genomeSlotInRound += 1;
+        resetMetricsForNextGenome();
+        player.score = 0;
+        for (let i = 0; i < NUM_NPCS; i++) {
+            npcs[i].score = 0;
         }
+        resetNpcPosition();
+        startRound(false); // false = don't show countdown for slot transition
+    } else {
+        // All slots tested, complete generation
+        genomeSlotInRound = 0; // Reset for next generation
+        completeGeneration();
+    }
 }
 //-----GAME ANIMATION LOOP-----//
 let animationFrameId; // Global variable to store the animation frame ID
@@ -1051,10 +1013,16 @@ function animate() {
         updatePlayer(deltaTime, worldOctree, GRAVITY, camera, player);
         updateSpheres(deltaTime, spheres, worldOctree, GRAVITY, vector1, vector2, vector3, player);
         updateEnemiesAndTargets(deltaTime, enemies, targets, enemyAndTargetBounds);
-        npc.update(deltaTime, worldOctree, targets, enemies, npcSpawnBall, elapsedTimeInRound, GRAVITY);
-        checkForEnemyCollisions(npc.collider, enemies, camera, player, score, npc);
-        checkBallTargetCollisions(spheres, targets, score, npc, worldOctree, player, playerStats);
-        teleportPlayerIfOob(camera, npc.collider, npc, player);
+        
+        // Update all 3 NPCs
+        for (let npcIdx = 0; npcIdx < NUM_NPCS; npcIdx++) {
+            const npc = npcs[npcIdx];
+            npc.update(deltaTime, worldOctree, targets, enemies, (pos, vel) => npcSpawnBall(pos, vel, npcIdx), elapsedTimeInRound, GRAVITY);
+            checkForEnemyCollisions(npc.collider, enemies, camera, player, score, npc);
+            teleportPlayerIfOob(camera, npc.collider, npc, player);
+        }
+        
+        checkBallTargetCollisions(spheres, targets, score, npcs, worldOctree, player, playerStats);
     }
     stats.update();
     renderer.render(scene, camera);
@@ -1107,7 +1075,6 @@ function restartGame() {
     generationsCompleted = 0;
     currentRound = 1;
     genomeSlotInRound = 0;
-    currentGenomeIndex = 0;
     roundMetrics = [];
     roundTransitioning = false;
     generationalPopulation = new Population(6);
@@ -1137,17 +1104,20 @@ function restartGame() {
     player.jumpFrequency = 0;
     player.turnSpeed = 0;
     
-    // Reset NPC Position, Velocity, and Behavior State
-    npc.collider.start.set(0.6, 0.35, 0.6);
-    npc.collider.end.set(0.6, 1, 0.6);
-    npc.velocity.set(0, 0, 0);
-    npc.targetIndex = -1; // Reset target index to force new target selection
-    npc.lastThrow = 0; // Reset throw timer
-    npc.lastJump = 0; // Reset jump timer
-    npc.lastBallIndex = 0; // Reset ball index for tracking thrown balls
-    npc.onFloor = false; // Reset on-floor state
-    npc.baseSpeed = 2.5; // Reset base movement speed
-    npc.mesh.position.copy(npc.getCenter()); // Ensure NPC mesh is positioned correctly
+    // Reset all 3 NPCs
+    for (let i = 0; i < NUM_NPCS; i++) {
+        const npc = npcs[i];
+        npc.collider.start.set(0.6 + i * 2, 0.35, 0.6 + i);
+        npc.collider.end.set(0.6 + i * 2, 1, 0.6 + i);
+        npc.velocity.set(0, 0, 0);
+        npc.targetIndex = -1; // Reset target index to force new target selection
+        npc.lastThrow = 0; // Reset throw timer
+        npc.lastJump = 0; // Reset jump timer
+        npc.lastBallIndex = 0; // Reset ball index for tracking thrown balls
+        npc.onFloor = false; // Reset on-floor state
+        npc.baseSpeed = 2.5; // Reset base movement speed
+        npc.mesh.position.copy(npc.getCenter()); // Ensure NPC mesh is positioned correctly
+    }
     
     // Reset Spheres
     spheres.forEach(sphere => {
