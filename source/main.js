@@ -45,6 +45,7 @@ const vector3 = new THREE.Vector3(); // Vector for collision detection
 let generationsCompleted = 0;
 const MAX_GENERATIONS = 1;
 let currentRound = 1;
+const MAX_ROUND_TIME = 75; // 75 seconds max per round to prevent infinite loops
 const MAX_ROUNDS = 1; // 1 round per generation: all 6 genomes tested via 3 NPCs in parallel
 const NUM_NPCS = 3; // 3 NPCs running in parallel
 const GENOMES_PER_NPC = 2; // Each NPC tests 2 genomes
@@ -76,7 +77,7 @@ export const COLLISION_COOLDOWN = 0.5;
 //-----END GLOBAL VARIABLES-----//
 
 //-----SETUP-----//
-let timer = new THREE.Timer();
+let timer = new THREE.Timer(); // Re-initialized in startRound() to ensure proper reset each round
 const scene = createScene();
 const camera = createCamera();
 const renderer = createRenderer();
@@ -282,7 +283,8 @@ function startTimer() {
     roundStartTime = performance.now();
     timerInterval = setInterval(() => {
         const timeElapsed = (performance.now() - roundStartTime) / 1000;
-        const timeRemaining = Math.max(0, genomeTestWindow - timeElapsed);
+        //const timeRemaining = Math.max(0, genomeTestWindow - timeElapsed);
+        const timeRemaining = Math.max(0, MAX_ROUND_TIME - timeElapsed);
         const minutes = Math.floor(timeRemaining / 60);
         const seconds = Math.floor(timeRemaining % 60);
         // Update The Timer Display
@@ -292,6 +294,10 @@ function startTimer() {
             clearInterval(timerInterval);
             if (roundRunning) {
                 continueRound();
+            }
+            else {
+                console.log("Round complete. Completing generation..."); // Debugging line to confirm round end when timer runs out
+                completeGeneration();
             }
         }
     }, 100); // Update more frequently for accuracy
@@ -460,7 +466,7 @@ function startRound(showCountdown = true) {
     deltaTimeSum = 0;
     isFirstFrameOfRound = true;
     
-    timerDisplay.innerText = '00:30';
+    //timerDisplay.innerText = '00:30'; //
     roundDisplay.innerText = `Round: ${currentRound}/${MAX_ROUNDS}, Slot: ${genomeSlotInRound + 1}/2`;
     
     if (showCountdown) {
@@ -473,7 +479,7 @@ function startRound(showCountdown = true) {
             for (let i = 0; i < NUM_NPCS; i++) {
                 npcMetricsArray[i].startTime = performance.now();
             }
-            roundStartTime = performance.now();
+            //roundStartTime = performance.now(); // Set in startTimer() for accurate timing with countdown
             startTimer();
             playerStats.startTime = performance.now();
             animate();
@@ -487,8 +493,8 @@ function startRound(showCountdown = true) {
         for (let i = 0; i < NUM_NPCS; i++) {
             npcMetricsArray[i].startTime = performance.now();
         }
-        roundStartTime = performance.now();
-        startTimer();
+        //roundStartTime = performance.now();
+        //startTimer();
         playerStats.startTime = performance.now();
         animate();
     }
@@ -542,10 +548,10 @@ function updateMetrics() {
                 safeFrames: playerStats.safeFrames,
                 totalFrames: playerTotalFrames,
                 avoidanceRatio: playerAvoidanceRatio,
-                closestEnemyDistance: playerStats.closestEnemyDistance,
-                averageEnemyDistance: playerStats.averageEnemyDistance,
+                //closestEnemyDistance: playerStats.closestEnemyDistance,
+                //averageEnemyDistance: playerStats.averageEnemyDistance,
                 avgActionLatency: playerAvgActionLatency,
-                timeAvoidingEnemies: playerStats.timeSpentAvoidingEnemies
+                //timeAvoidingEnemies: playerStats.timeSpentAvoidingEnemies
             },
             npc: {
                 timeSurvived: npcTimeSurvived,
@@ -699,10 +705,10 @@ function exportMetricsToCSV() {
         'PlayerSafeFrames',
         'PlayerTotalFrames',
         'PlayerAvoidanceRatio',
-        'PlayerClosestEnemyDist',
-        'PlayerAvgEnemyDist',
+        //'PlayerClosestEnemyDist',
+        //'PlayerAvgEnemyDist',
         'PlayerAvgActionLatency',
-        'PlayerTimeAvoidingEnemies',
+        //'PlayerTimeAvoidingEnemies',
         // NPC behavior metrics
         'NPCTimeSurvived',
         'NPCTargetsHit',
@@ -751,10 +757,10 @@ function exportMetricsToCSV() {
             metric.player.safeFrames,
             metric.player.totalFrames,
             metric.player.avoidanceRatio.toFixed(4),
-            metric.player.closestEnemyDistance.toFixed(2),
-            metric.player.averageEnemyDistance.toFixed(2),
+            //metric.player.closestEnemyDistance.toFixed(2),
+            //metric.player.averageEnemyDistance.toFixed(2),
             metric.player.avgActionLatency.toFixed(4),
-            metric.player.timeAvoidingEnemies.toFixed(2),
+            //metric.player.timeAvoidingEnemies.toFixed(2),
             // NPC metrics
             metric.npc.timeSurvived.toFixed(2),
             metric.npc.targetsHit,
@@ -828,7 +834,7 @@ function downloadAllGenerationsCSV() {
 
 // Function to complete one generation once three rounds are played
 function completeGeneration() {
-    numGenomesTested += 6;
+    //numGenomesTested += 6;
     console.log("=== COMPLETING GENERATION ===");
     console.log("roundMetrics length:", roundMetrics.length);
     if (roundMetrics.length > 0) {
@@ -836,7 +842,7 @@ function completeGeneration() {
     }
     generationalPopulation.evaluateFitness(roundMetrics);
     generationsCompleted += 1;
-  if (generationsCompleted <= MAX_GENERATIONS) {
+  if (generationsCompleted < MAX_GENERATIONS) {
     exportMetricsToCSV();
     // Find the best genome and protect it (elitism)
     const bestGenomeIndex = generationalPopulation.findBestGenomeIndex();
@@ -883,7 +889,7 @@ function completeGeneration() {
     roundMetrics = [];
     resetMetricsForNextGenome();
     resetRound();
-    startRound();
+    startRound(true); // Show countdown for new generation
   } else {
     exportMetricsToCSV();
     downloadAllGenerationsCSV();
@@ -929,7 +935,7 @@ function collectLiveMetrics(deltaTime) {
 }
 export function continueRound() {
     updateMetrics();
-    clearInterval(timerInterval);
+    //clearInterval(timerInterval);
     
     if (genomeSlotInRound < GENOMES_PER_NPC - 1) {
         // Move to next slot (0 -> 1)
@@ -940,6 +946,7 @@ export function continueRound() {
             npcs[i].score = 0;
         }
         resetNpcPosition();
+        console.log(`Starting next slot: ${genomeSlotInRound} for all NPCs`); // Debugging line to confirm slot transition
         startRound(false); // false = don't show countdown for slot transition
     } else {
         // All slots tested, complete generation
