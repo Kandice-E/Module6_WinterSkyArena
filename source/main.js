@@ -35,7 +35,7 @@ const enemyAndTargetBounds = { minY: -2, maxY: 10};
 const NUM_TARGETS = 10;
 const TARGET_RADIUS = 0.5;
 const targets = [];
-let score = {counter: 0, npcCounter: 0}; // Initialize score counters
+let score = {counter: 0, npcCounter1: 0, npcCounter2: 0, npcCounter3: 0}; // Initialize score counters
 //const playerCollider = new Capsule( new THREE.Vector3( 0, 0.35, 0 ), new THREE.Vector3( 0, 1, 0 ), 0.35 );
 const worldOctree = new Octree(); // Create a new Octree for the world
 const vector1 = new THREE.Vector3(); // Vector for collision detection
@@ -43,14 +43,14 @@ const vector2 = new THREE.Vector3(); // Vector for collision detection
 const vector3 = new THREE.Vector3(); // Vector for collision detection
 // New Globals for Rounds and Metrics Collection
 let generationsCompleted = 0;
-const MAX_GENERATIONS = 1;
+const MAX_GENERATIONS = 2; // Limit total generations to prevent infinite testing
 let currentRound = 1;
 const MAX_ROUND_TIME = 75; // 75 seconds max per round to prevent infinite loops
 const MAX_ROUNDS = 1; // 1 round per generation: all 6 genomes tested via 3 NPCs in parallel
 const NUM_NPCS = 3; // 3 NPCs running in parallel
 const GENOMES_PER_NPC = 2; // Each NPC tests 2 genomes
 let genomeSlotInRound = 0; // 0 or 1 (which genome slot we're testing across all NPCs)
-const genomeTestWindow = 30;
+const genomeTestWindow = 30; // 30 seconds per genome slot
 let roundRunning = false;
 let roundTransitioning = false; // Flag to prevent continueRound from being called multiple times
 let roundMetrics = [];
@@ -251,20 +251,26 @@ scene.add(points);
 //-----ADD SCORE DISPLAY-----//
 const scoreDisplay = document.createElement('div');
 scoreDisplay.id = 'score'; // Add an ID for easy access
-scoreDisplay.innerText = `Player Score: ${score.counter} NPC Score: ${score.npcCounter}`; // Initial score display
+scoreDisplay.innerText = `Player Score: ${0}
+        NPC 1 Score: ${0}
+        NPC 2 Score: ${0}
+        NPC 3 Score: ${0}`; // Initial score display
 document.body.appendChild(scoreDisplay);
 const roundDisplay = document.createElement('div');
 roundDisplay.id = 'round-display';
-roundDisplay.innerText = `Round: ${currentRound}`;
+roundDisplay.innerText = `Generation: ${generationsCompleted + 1}`;
 document.body.appendChild(roundDisplay);
 // Update Score Display Function
 export function updateScoreDisplay(score) {
     console.log("Score updated:", score.counter); // Debugging line
-    console.log("NPC Score updated:", score.npcCounter); // Debugging line
+    console.log("NPC Score updated:", score.npcCounter1); // Debugging line
     const scoreElement = document.getElementById('score');
     if (scoreElement) {
         console.log("Score element found!"); // Debugging line
-        scoreElement.innerText = `Player Score: ${score.counter} NPC Score: ${score.npcCounter}`;
+        scoreElement.innerText = `Player Score: ${player.score}
+        NPC 1 Score: ${score.npcCounter1}
+        NPC 2 Score: ${score.npcCounter2}
+        NPC 3 Score: ${score.npcCounter3}`;
     } else {
         console.error("Score element not found!");
     }
@@ -280,6 +286,11 @@ let roundStartTime;
 let timerInterval; // Variable to store the interval ID
 //let timeRemaining = genomeTestWindow; // 30 seconds per genome slot
 function startTimer() {
+    console.log("StartTimer called, starting timer..."); // Debugging line
+    if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+    }
     roundStartTime = performance.now();
     timerInterval = setInterval(() => {
         const timeElapsed = (performance.now() - roundStartTime) / 1000;
@@ -296,8 +307,13 @@ function startTimer() {
                 continueRound();
             }
             else {
-                console.log("Round complete. Completing generation..."); // Debugging line to confirm round end when timer runs out
-                completeGeneration();
+                //console.log("Round complete. Completing generation..."); // Debugging line to confirm round end when timer runs out
+                //completeGeneration();
+                console.log("Timer reached 0, all generations completed.");
+                roundRunning = false; // Signal animate loop to stop
+                cancelAnimationFrame(animationFrameId); // Cancel pending animation frame
+                endGame();
+                return;
             }
         }
     }, 100); // Update more frequently for accuracy
@@ -314,11 +330,11 @@ function showRoundCountdown(seconds, onFinish) {
     }
     roundCountdown.style.display = 'flex';
     let value = seconds;
-    roundCountdown.textContent = `Round ${currentRound} in ${value}`;
+    roundCountdown.textContent = `Round ${generationsCompleted + 1} in ${value}`;
     const timerId = setInterval(() => {
         value -= 1;
         if (value > 0) {
-            roundCountdown.textContent = `Round ${currentRound} in ${value}`;
+            roundCountdown.textContent = `Round ${generationsCompleted + 1} in ${value}`;
         } else {
             clearInterval(timerId);
             roundCountdown.style.display = 'none';
@@ -430,6 +446,7 @@ startButton.addEventListener('click', () => {
     } else {
         console.log("Pointer lock is not active.");
     }
+    console.log("Start button clicked. Starting game...");
     startScreen.style.display = 'none'; // Hide the start screen
     backgroundMusic.play(); // Start the background music
     roundRunning = true;
@@ -467,7 +484,8 @@ function startRound(showCountdown = true) {
     isFirstFrameOfRound = true;
     
     //timerDisplay.innerText = '00:30'; //
-    roundDisplay.innerText = `Round: ${currentRound}/${MAX_ROUNDS}, Slot: ${genomeSlotInRound + 1}/2`;
+    roundDisplay.innerText = `Generation: ${generationsCompleted + 1}/${MAX_GENERATIONS}
+    Slot: ${genomeSlotInRound + 1}/2`;
     
     if (showCountdown) {
         showRoundCountdown(3, () => {
@@ -501,6 +519,7 @@ function startRound(showCountdown = true) {
 }
 function updateMetrics() {
     // Player metrics (collected once, shared across all NPCs)
+    playerStats.safeFrames = player.safeFrames || 0; // Ensure safeFrames is defined
     const playerTimeSurvived = Math.max(playerStats.timeSurvived, 0.001);
     const playerTotalFrames = Math.max(playerStats.totalFrames, 1);
     const playerThrowFrequency = playerStats.ballsThrown > 0 ? playerTimeSurvived / playerStats.ballsThrown : 0;
@@ -595,7 +614,13 @@ function resetRound() {
     player.velocity.set(0,0,0);
     player.jumpCount = 0; // Reset player jump counter
     score.counter = 0;
-    score.npcCounter = 0;
+    score.npcCounter1 = 0;
+    score.npcCounter2 = 0;
+    score.npcCounter3 = 0;
+    player.score = 0; // Reset player score
+    for (let i = 0; i < NUM_NPCS; i++) {
+        npcs[i].score = 0; // Reset all NPC scores
+    }
     updateScoreDisplay(score);
     repositionEnemies();
     repositionTargets();
@@ -702,9 +727,9 @@ function exportMetricsToCSV() {
         'PlayerBallsThrown',
         'PlayerTargetsHit',
         'PlayerThrowFrequency',
-        'PlayerSafeFrames',
-        'PlayerTotalFrames',
-        'PlayerAvoidanceRatio',
+        'PlayerSafeFrames', //Remove since avoidance ratio is not being used 
+        'PlayerTotalFrames', // Remove since avoidance ratio is not being used
+        'PlayerAvoidanceRatio', // Remove since avoidance ratio is not being used
         //'PlayerClosestEnemyDist',
         //'PlayerAvgEnemyDist',
         'PlayerAvgActionLatency',
@@ -721,7 +746,13 @@ function exportMetricsToCSV() {
         'NPCTurnSpeed',
         'NPCScore',
         'NPCAvoidanceRatio',
+        // Genome Fitness and Component Values
         'GenomeFitness',
+        'Competitive',
+        'Closeness',
+        'Adaptability',
+        'Behavioral',
+        'Responsiveness',
         // Behavior genes
         'BehaviorJumpFrequency',
         'BehaviorBallThrowPower',
@@ -732,7 +763,7 @@ function exportMetricsToCSV() {
         // Behavior comparisons
         'NPCvsPlayerJumpRatio',
         'NPCvsPlayerThrowRatio',
-        'NPCvsPlayerAvoidanceRatio',
+        'NPCvsPlayerAvoidanceRatio',// Remove since avoidance ratio is not being used
         'NPCvsPlayerTurnRatio',
         'NPCvsPlayerScoreRatio'
     ];
@@ -754,8 +785,8 @@ function exportMetricsToCSV() {
             metric.player.ballsThrown,
             metric.player.targetsHit,
             metric.player.throwFrequency.toFixed(2),
-            metric.player.safeFrames,
-            metric.player.totalFrames,
+            metric.player.safeFrames,// Remove since avoidance ratio is not being used
+            metric.player.totalFrames,// Remove since avoidance ratio is not being used
             metric.player.avoidanceRatio.toFixed(4),
             //metric.player.closestEnemyDistance.toFixed(2),
             //metric.player.averageEnemyDistance.toFixed(2),
@@ -773,7 +804,13 @@ function exportMetricsToCSV() {
             metric.npc.turnSpeed.toFixed(2),
             metric.npc.score,
             metric.npc.avoidanceRatio.toFixed(4),
+            // Genome fitness and components
             genome.fitness.toFixed(4),
+            genome.metrics.competitive.toFixed(4),
+            genome.metrics.closeness.toFixed(4),
+            genome.metrics.adaptability.toFixed(4),
+            genome.metrics.behavioral.toFixed(4),
+            genome.metrics.responsiveness.toFixed(4),
             // Behavior genes
             metric.behavior.jumpFrequency,
             metric.behavior.ballThrowPower,
@@ -784,7 +821,7 @@ function exportMetricsToCSV() {
             // Behavior comparisons
             metric.behaviorComparison.npcVsPlayerJumpRatio.toFixed(4),
             metric.behaviorComparison.npcVsPlayerThrowRatio.toFixed(4),
-            metric.behaviorComparison.npcVsPlayerAvoidanceRatio.toFixed(4),
+            metric.behaviorComparison.npcVsPlayerAvoidanceRatio.toFixed(4),// Remove since avoidance ratio is not being used
             metric.behaviorComparison.npcVsPlayerTurnRatio.toFixed(4),
             metric.behaviorComparison.scoreRatio.toFixed(4)
         ];
@@ -798,7 +835,6 @@ function exportMetricsToCSV() {
     
     console.log(`Generation ${generationsCompleted} metrics added to export queue`);
 }
-
 // Function to download all accumulated CSV data
 function downloadAllGenerationsCSV() {
     if (allGenerationsCSVData.length === 0) {
@@ -831,10 +867,8 @@ function downloadAllGenerationsCSV() {
     
     console.log(`All metrics exported to ${filename}`);
 }
-
-// Function to complete one generation once three rounds are played
+// Function to complete one generation once each round is played
 function completeGeneration() {
-    //numGenomesTested += 6;
     console.log("=== COMPLETING GENERATION ===");
     console.log("roundMetrics length:", roundMetrics.length);
     if (roundMetrics.length > 0) {
@@ -881,7 +915,7 @@ function completeGeneration() {
     
     console.log("=== AFTER EVOLUTION Gen", generationsCompleted + 1, "===");
     generationalPopulation.genomes.forEach((g, i) => {
-        console.log(`Genome ${i}:`, {id: g.id, jumpFreq: g.behavior.jumpFrequency, ballPower: g.behavior.ballThrowPower, fitness: g.fitness});
+        console.log(`Genome ${i}:`, {id: g.id, jumpFreq: g.behavior.jumpFrequency, ballPower: g.behavior.ballThrowPower, fitness: g.fitness, competitive: g.metrics.competitive, closeness: g.metrics.closeness, adaptability: g.metrics.adaptability, behavioral: g.metrics.behavioral, responsiveness: g.metrics.responsiveness});
     });
     
     currentRound = 1;
@@ -941,7 +975,7 @@ export function continueRound() {
         // Move to next slot (0 -> 1)
         genomeSlotInRound += 1;
         resetMetricsForNextGenome();
-        player.score = 0;
+        //player.score = 0;
         for (let i = 0; i < NUM_NPCS; i++) {
             npcs[i].score = 0;
         }
@@ -962,9 +996,9 @@ function animate() {
     if(!roundRunning) {
         cancelAnimationFrame(animationFrameId);
         // Queue restart after current frame completes
-        if (!document.getElementById('game-over-screen')) {
-            setTimeout(() => restartGame(), 50);
-        }
+        //if (!document.getElementById('game-over-screen')) {
+          //  setTimeout(() => restartGame(), 50);
+        //}
         return;
     }
     
@@ -1025,7 +1059,7 @@ function animate() {
         for (let npcIdx = 0; npcIdx < NUM_NPCS; npcIdx++) {
             const npc = npcs[npcIdx];
             npc.update(deltaTime, worldOctree, targets, enemies, (pos, vel) => npcSpawnBall(pos, vel, npcIdx), elapsedTimeInRound, GRAVITY);
-            checkForEnemyCollisions(npc.collider, enemies, camera, player, score, npc);
+            checkForEnemyCollisions(npc.collider, enemies, camera, player, score, npc, npcIdx);
             teleportPlayerIfOob(camera, npc.collider, npc, player);
         }
         
@@ -1063,7 +1097,10 @@ export function endGame() {
     // Display The Final Score
     const finalScore = document.createElement('div');
     finalScore.id = 'final-score';
-    finalScore.innerText = `Final Score: ${score.counter} | NPC Score: ${score.npcCounter}`;
+    finalScore.innerText = `Final Player Score: ${score.counter}
+    NPC 1 Score: ${score.npcCounter1}
+    NPC 2 Score: ${score.npcCounter2}
+    NPC 3 Score: ${score.npcCounter3}`;
     gameOverScreen.appendChild(finalScore);
     // Append The Game-Over Screen To The Document Body
     document.body.appendChild(gameOverScreen);
@@ -1095,7 +1132,9 @@ function restartGame() {
     
     // Reset The Score
     score.counter = 0;
-    score.npcCounter = 0;
+    score.npcCounter1 = 0;
+    score.npcCounter2 = 0;
+    score.npcCounter3 = 0;
     updateScoreDisplay(score);
     
     // Reset the timer

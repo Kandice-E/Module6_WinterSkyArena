@@ -119,7 +119,7 @@ function updateEnemiesAndTargets(deltaTime, enemies, targets, enemyAndTargetBoun
     });
 }
 // General Collision Detection Function For Player-Enemy Collisions and NPC Collisions
-function checkForEnemyCollisions(npcCollider, enemies, camera, player, score, npc) {
+function checkForEnemyCollisions(npcCollider, enemies, camera, player, score, npc, npcIdx) {
     const currentTime = performance.now() / 1000;
     for (const enemy of enemies) {
         const distance1 = npcCollider.start.distanceTo(enemy.collider.center);
@@ -136,11 +136,18 @@ function checkForEnemyCollisions(npcCollider, enemies, camera, player, score, np
             npcCollider.end.set( 0, 1, 0 );
             npcCollider.radius = 0.35;
             npc.score -= 1;
+            if (npcIdx === 0) {
+                score.npcCounter1 -= 1;
+            } else if (npcIdx === 1) {
+                score.npcCounter2 -= 1;
+            } else if (npcIdx === 2) {
+                score.npcCounter3 -= 1;
+            }
             score.npcCounter -= 1;
             updateScoreDisplay(score);
             // Future update could decrement npc number of lives
             // and end game once lives equal zero.
-        }
+        } 
         if (distance2 < combinedRadius2) {
             if (currentTime - collisionState.lastPlayerEnemyCollisionTime < COLLISION_COOLDOWN) {
                 return; // Skip collision handling if we're still in the cooldown period
@@ -150,6 +157,7 @@ function checkForEnemyCollisions(npcCollider, enemies, camera, player, score, np
             player.collider.start.set( 0, 0.35, 0 );
             player.collider.end.set( 0, 1, 0 );
             player.collider.radius = 0.35;
+            player.safeFrames = 0; // Reset safe frames on collision for player avoidance metric
             camera.position.copy( player.collider.end );
             camera.rotation.set( 0, 0, 0 );
             player.score -= 1;
@@ -157,6 +165,8 @@ function checkForEnemyCollisions(npcCollider, enemies, camera, player, score, np
             updateScoreDisplay(score);
             // Future update could decrement npc number of lives
             // and end game once lives equal zero.
+        } else if (distance2 < combinedRadius2) {
+            player.safeFrames += 1; // Increment safe frames for player avoidance metric
         }
     }
 }
@@ -172,7 +182,13 @@ function checkBallTargetCollisions(spheres, targets, score, npcs, worldOctree, p
                     if (target === targets[npc.targetIndex]) {
                         // NPC hit its target
                         console.log(`NPC ${sphere.throwerNpcIndex} hit a target!`);
-                        score.npcCounter += 1;
+                        if (sphere.throwerNpcIndex === 0) {
+                            score.npcCounter1 += 1;
+                        } else if (sphere.throwerNpcIndex === 1) {
+                            score.npcCounter2 += 1;
+                        } else if (sphere.throwerNpcIndex === 2) {
+                            score.npcCounter3 += 1;
+                        }
                         npc.score += 1;
                         npc.targetsHit += 1;
                     } else {

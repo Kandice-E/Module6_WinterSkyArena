@@ -1,13 +1,14 @@
 import * as THREE from 'three';
 import { NPC } from './npc';
+import { mx_bilerp_0 } from 'three/src/nodes/materialx/lib/mx_noise.js';
 
 export class Genome {
     constructor() {
         this.behavior = {
-        jumpFrequency: roundTo(Math.random() * 1.5 + 2.75, 2), // 2.75 to 4.25 seconds (centered at ~3.5)
-        ballThrowPower: roundTo(Math.random() * 30 + 40, 2), // 40 to 70 velocity multiplier (centered at ~55)
-        ballThrowFrequency: roundTo(Math.random() * 2 + 4, 2), // 4 to 6 seconds (centered at ~5)
-        targetSelectionRadius: roundTo(Math.random() * 20 + 20, 2), // 20 to 40 units (centered at ~30)
+        jumpFrequency: roundTo(Math.random() * 2 + 4, 2), // 2 to 6 seconds (centered at ~5)
+        ballThrowPower: roundTo(Math.random() * 50 + 40, 2), // 50 to 90 velocity multiplier (centered at ~70)
+        ballThrowFrequency: roundTo(Math.random() * 4 + 3, 2), // 4 to 7 seconds (centered at ~5.5)
+        targetSelectionRadius: roundTo(Math.random() * 30 + 20, 2), // 30 to 50 units (centered at ~40)
         enemyAvoidanceDistance: roundTo(Math.random() * 4 + 8, 2), // 8 to 12 units (centered at ~10)
         movementSpeedMultiplier: roundTo(Math.random() * 0.6 + 1.2, 2) // 1.2 to 1.8 multiplier (centered at ~1.5)
         };
@@ -24,10 +25,10 @@ export class Genome {
     }
 }
 const GENE_RANGES = {
-            jumpFrequency: { min: 2, max: 5 }, // Keep original range for evolution flexibility
-            ballThrowPower: { min: 30, max: 70 }, // Keep original range for evolution flexibility
-            ballThrowFrequency: { min: 3, max: 7 }, // Keep original range for evolution flexibility
-            targetSelectionRadius: { min: 10, max: 50 }, // Expanded for more exploration potential
+            jumpFrequency: { min: 2, max: 6 }, // Keep original range for evolution flexibility
+            ballThrowPower: { min: 50, max: 90 }, // Keep original range for evolution flexibility
+            ballThrowFrequency: { min: 4, max: 7 }, // Keep original range for evolution flexibility
+            targetSelectionRadius: { min: 10, max: 60 }, // Expanded for more exploration potential
             enemyAvoidanceDistance: { min: 5, max: 15 }, // Expanded range
             movementSpeedMultiplier: { min: 0.8, max: 2 } // Expanded for more variation
         }
@@ -41,7 +42,7 @@ export class Population {
         this.fitnessScores = [];
     }
     mutate(genome) {
-        const mutationRate = 0.3; // 30% chance to mutate each gene
+        const mutationRate = 0.05; // 5% chance to mutate each gene for tiny population
         const noiseStdDev = 0.1;  // 10% of range
 
         Object.keys(GENE_RANGES).forEach(key => {
@@ -81,11 +82,11 @@ export class Population {
     //-----Refactor fitness evaluation to be done on each genome in the population-----//
     evaluateFitness(roundMetrics) {
         const weights = {
-            competitive: 0.3,
-            closeness: 0.25,
-            adaptability: 0.2,
-            behavioral: 0.15,
-            responsiveness: 0.1
+            competitive: 0.45, // Primary focus on outperforming player
+            closeness: 0.30, // Core Skill: Balancing score competitiveness without extreme risk
+            adaptability: 0.10, // Secondary Reduced emphasis to allow for more diverse strategies that may not always outperform but show potential
+            behavioral: 0.10, // Secondary
+            responsiveness: 0.05 // Low Impact: Encourages quicker reactions and efficient play but allows for some latency in exchange for other strengths
         };
         //Start by identifying and storing each genome's metrics
         for (let g = 0; g < this.genomes.length; g++) {
@@ -109,12 +110,15 @@ export class Population {
             const totalFrames = Math.max(npcStats.totalFrames, 1);
             
             // FITNESS COMPONENT 1: [0, 1]
-            const competitiveRatio = Math.min(npcStats.score / 
-            Math.max(1, playerStats.score), 1.5);
-            avgComponents.competitive += competitiveRatio / 1.5;
+            const winBonus = npcStats.score > playerStats.score ? 1 : 0; // Add a win bonus to strongly reward outperforming the player
+            const competitiveRatio = npcStats.score / Math.max(1, playerStats.score);
+            const competitive = Math.min(competitiveRatio / 1.5, 1);
+            avgComponents.competitive += 0.7 * competitive + 0.3 * winBonus; // Weight the competitive ratio and win bonus to encourage both consistent competitiveness and outright wins
             // FITNESS COMPONENT 2: [0, 1]
             const scoreDiff = Math.abs(npcStats.score - playerStats.score);
-            avgComponents.closeness += Math.max(0, (100 - scoreDiff * 2) / 100);
+            if (npcStats.score < playerStats.score) { // Only reward closeness when losing
+                avgComponents.closeness += Math.max(0, (100 - scoreDiff * 2) / 100);
+            }
             // FITNESS COMPONENT 3: [0, 1]
             const scoreRatio = 0.5 * (npcStats.score / npcTime) + 0.5 * (npcStats.score / (npcStats.score + playerStats.score));
             const scoreRatioExpec = 0.5 * (playerStats.score / playerTime) + 0.5 * (playerStats.score / (playerStats.score + npcStats.score)); 
@@ -122,22 +126,26 @@ export class Population {
             // FITNESS COMPONENT 4: [0, 1]
             const accuracy =  (npcStats.targetsHit / Math.max(1, npcStats.ballsThrown));
             const avoidance = (npcStats.safeFrames / totalFrames);
-            avgComponents.behavioral += (accuracy + avoidance) / 2;
+            const activity = npcStats.ballsThrown / totalFrames; //Activity penelty (prevents camping)
+            avgComponents.behavioral += (
+                0.4 * accuracy +
+                0.4 * avoidance +
+                0.2 * activity
+            );
             // FITNESS COMPONENT 5: [0, 1]
             const latencyScore = inverseRangeScore(npcStats.avgActionLatency || 0.1, 0.05, 0.3);
             const jumpScore = rangeScore(npcStats.measuredJumpFrequency || 4, 3, 7);
             const turnScore = rangeScore(npcStats.turnSpeed || 5, 5, 10);
             const responsiveness = (isNaN(latencyScore) ? 0 : latencyScore) + (isNaN(jumpScore) ? 0 : jumpScore) + (isNaN(turnScore) ? 0 : turnScore);
-            avgComponents.responsiveness += responsiveness / 3;
+            avgComponents.responsiveness += Math.min(1, responsiveness / 3);
             });
             //Divide by number of rounds to get average
-            for (let key in avgComponents) {
-                avgComponents[key] /= genomeMetrics.length;
-            }
+            //for (let key in avgComponents) {
+              //  avgComponents[key] /= genomeMetrics.length;
+            //}
             //Alpha Rolling Fitness (EMA)
-            const alpha = 0.4;
-            const genome = this.genomes[g];
-            
+            /*const alpha = 0.4;
+            //const genome = this.genomes[g];
             if (!genome.metrics) {
                 genome.metrics = avgComponents;
                 genome.evaluations = 1;
@@ -146,9 +154,15 @@ export class Population {
                     genome.metrics[key] = (1- alpha) * genome.metrics[key] + alpha * avgComponents[key];
                 }
                 genome.evaluations++;
-            }
+            }*/
             //Recompute Weighted Total Fitness
+            //Removing EMA since we are now evaluating fitness every round for each genome, so we want the most recent performance to be reflected in selection pressure without smoothing. This allows the population to adapt more quickly to changes and encourages exploration of new behaviors.
             let totalFitness = 0;
+            const genome = this.genomes[g];
+            for (let key in avgComponents) {
+                genome.metrics[key] = avgComponents[key]; // Store the average component values in the genome's metrics for reference
+                genome.evaluations++; // Increment evaluations for this genome
+            }
             for (let key in genome.metrics) {
                 const componentValue = isNaN(genome.metrics[key]) ? 0 : genome.metrics[key];
                 totalFitness += componentValue * weights[key];
@@ -157,7 +171,9 @@ export class Population {
             genome.fitness = isNaN(totalFitness) ? 0 : totalFitness * 5;
             this.fitnessScores[g] = genome.fitness;
             //this.fitnessScores[g] = genomeMetrics.length > 0 ? fitness * 5 : 0;
-        }//REMOVE BELOW ONCE TESTED THE ABOVE SETUP
+        }
+    
+        //REMOVE BELOW ONCE TESTED THE ABOVE SETUP
         /*
         // FITNESS COMPONENT 1: [0, 1]
         const competitiveRatio = Math.min(npcStats.score / 
