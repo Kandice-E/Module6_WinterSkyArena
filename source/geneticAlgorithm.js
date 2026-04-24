@@ -108,7 +108,6 @@ export class Population {
             const npcTime = Math.max(npcStats.timeSurvived, 0.001);
             const playerTime = Math.max(playerStats.timeSurvived, 0.001);
             const totalFrames = Math.max(npcStats.totalFrames, 1);
-            
             // FITNESS COMPONENT 1: [0, 1]
             const winBonus = npcStats.score > playerStats.score ? 1 : 0; // Add a win bonus to strongly reward outperforming the player
             const competitiveRatio = npcStats.score / Math.max(1, playerStats.score);
@@ -124,14 +123,10 @@ export class Population {
             const scoreRatioExpec = 0.5 * (playerStats.score / playerTime) + 0.5 * (playerStats.score / (playerStats.score + npcStats.score)); 
             avgComponents.adaptability += Math.max(0, (100 - Math.abs((scoreRatio * 100) - (scoreRatioExpec * 100))) / 100);
             // FITNESS COMPONENT 4: [0, 1]
-            const accuracy =  (npcStats.targetsHit / Math.max(1, npcStats.ballsThrown));
-            const avoidance = (npcStats.safeFrames / totalFrames);
-            const activity = npcStats.ballsThrown / totalFrames; //Activity penelty (prevents camping)
-            avgComponents.behavioral += (
-                0.4 * accuracy +
-                0.4 * avoidance +
-                0.2 * activity
-            );
+            const accuracy =  (npcStats.targetsHit / Math.max(1, npcStats.ballsThrown)) * 0.4;
+            const avoidance = (npcStats.framesSafeDistance / Math.max(1, totalFrames)) * 0.4; // Take max to prevent division by zero
+            const activity = npcStats.ballsThrown / Math.max(1, totalFrames) * 0.2; //Activity penelty (prevents camping)
+            avgComponents.behavioral += (accuracy + avoidance + activity);
             // FITNESS COMPONENT 5: [0, 1]
             const latencyScore = inverseRangeScore(npcStats.avgActionLatency || 0.1, 0.05, 0.3);
             const jumpScore = rangeScore(npcStats.measuredJumpFrequency || 4, 3, 7);
@@ -168,7 +163,7 @@ export class Population {
                 totalFitness += componentValue * weights[key];
             }
             //Store In Population Object For Reference
-            genome.fitness = isNaN(totalFitness) ? 0 : totalFitness * 5;
+            genome.fitness = isNaN(totalFitness) ? 0 : totalFitness; // Final fitness is noramlized to [0, 1]
             this.fitnessScores[g] = genome.fitness;
             //this.fitnessScores[g] = genomeMetrics.length > 0 ? fitness * 5 : 0;
         }
