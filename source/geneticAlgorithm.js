@@ -123,7 +123,7 @@ export class Population {
             const scoreRatioExpec = 0.5 * (playerStats.score / playerTime) + 0.5 * (playerStats.score / (playerStats.score + npcStats.score)); 
             avgComponents.adaptability += Math.max(0, (100 - Math.abs((scoreRatio * 100) - (scoreRatioExpec * 100))) / 100);
             // FITNESS COMPONENT 4: [0, 1]
-            const accuracy =  (npcStats.targetsHit / Math.max(1, npcStats.ballsThrown)) * 0.4;
+            const accuracy = (npcStats.targetsHit / Math.max(1, npcStats.ballsThrown)) * 0.4;
             const avoidance = (npcStats.framesSafeDistance / Math.max(1, totalFrames)) * 0.4; // Take max to prevent division by zero
             const activity = npcStats.ballsThrown / Math.max(1, totalFrames) * 0.2; //Activity penelty (prevents camping)
             avgComponents.behavioral += (accuracy + avoidance + activity);
