@@ -56,8 +56,6 @@ export class NPC {
         this.baseSpeed = 2.5; // base movement speed
         this.timeSurvived = 0; // For fitness evaluation
         this.targetsHit = 0; // For fitness evaluation
-        // NOTE: totalFrames and framesSafeDistance tracking moved to npcStats in collectLiveMetrics()
-        // This ensures proper reset between genome tests
         this.framesSinceTargetDetection = 0; // For Fitness evaluation
         this.actionLatencies = []; // For fitness evaluation
         this.lastActionLatency = 0;
@@ -98,7 +96,6 @@ export class NPC {
         const speed = this.baseSpeed * this.behavior.movementSpeedMultiplier;
         this.velocity.x = moveDir.x * speed;
         this.velocity.z = moveDir.z * speed;
-        
         // Track heading changes for turn speed metric
         if (moveDir.length() > 0) {
             const headingChange = Math.acos(Math.max(-1, Math.min(1, this.lastDirection.dot(moveDir))));
@@ -116,15 +113,9 @@ export class NPC {
         // Gravity
         if (!this.onFloor) {
             this.velocity.y -= GRAVITY * delta;
-            //console.log("NPC is IN THE AIR applying gravity!"); //DEBUG LINE: CAN SAFELY REMOVE ONCE TESTING FINISHED
         } else {
             this.velocity.y = 0;
-            //console.log("NPC is ON THE GROUND! Setting downward velocity to ZERO."); //DEBUG LINE: CAN SAFELY REMOVE ONCE TESTING FINISHED
         }
-        //DEBUG LINES: verify current state of NPC behavior parameters and velocity vector
-        //console.log("Checking for current NPC y velocity: ", this.velocity.y);
-        //console.log("NPC: >>>>>", this.behavior);
-        // DEBUG: Check if worldOctree exists
         if (!worldOctree) {
         console.error("NPC: worldOctree is null or undefined!");
         return;
@@ -134,8 +125,6 @@ export class NPC {
         this.collider.translate(deltaPos); // Use translate() method like player does
         // Collision with world
         const result = worldOctree.capsuleIntersect(this.collider);
-        //DEBUG LINE
-        //console.log("Logging whether the player is on the floor before gravity is applied:>>>>>>", result);
         // DEBUG: Log collision results
         if (time % 1 < delta) {
         //console.log(`Collision result:`, result ? "HIT" : "MISS");
@@ -152,12 +141,9 @@ export class NPC {
         }
         // Sync mesh
         this.mesh.position.copy(this.getCenter());
-        // Safe distance tracking is done in collectLiveMetrics (main.js) not here
-        // This ensures proper reset between genome tests
         // Throwing balls
         const timeSinceLastThrow = time - this.lastThrow;
         const shouldThrow = timeSinceLastThrow > this.behavior.ballThrowFrequency && this.targetIndex >= 0;
-        
         if (shouldThrow) {
             this.lastThrow = time;
             this.ballsThrown += 1; // Increment ball throw counter

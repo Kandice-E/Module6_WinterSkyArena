@@ -24,14 +24,15 @@ export class Genome {
         this.id = 0;
     }
 }
+// Gene ranges for mutation (defined outside of class for easy access in mutation function)
 const GENE_RANGES = {
-            jumpFrequency: { min: 2, max: 6 }, // Keep original range for evolution flexibility
-            ballThrowPower: { min: 50, max: 90 }, // Keep original range for evolution flexibility
-            ballThrowFrequency: { min: 4, max: 7 }, // Keep original range for evolution flexibility
-            targetSelectionRadius: { min: 10, max: 60 }, // Expanded for more exploration potential
-            enemyAvoidanceDistance: { min: 5, max: 15 }, // Expanded range
-            movementSpeedMultiplier: { min: 0.8, max: 2 } // Expanded for more variation
-        }
+    jumpFrequency: { min: 2, max: 6 }, // Keep original range for evolution flexibility
+    ballThrowPower: { min: 50, max: 90 }, // Keep original range for evolution flexibility
+    ballThrowFrequency: { min: 4, max: 7 }, // Keep original range for evolution flexibility
+    targetSelectionRadius: { min: 10, max: 60 }, // Expanded for more exploration potential
+    enemyAvoidanceDistance: { min: 5, max: 15 }, // Expanded range
+    movementSpeedMultiplier: { min: 0.8, max: 2 } // Expanded for more variation
+}
 export class Population {
     constructor(size) {
         this.genomes = [];
@@ -134,22 +135,6 @@ export class Population {
             const responsiveness = (isNaN(latencyScore) ? 0 : latencyScore) + (isNaN(jumpScore) ? 0 : jumpScore) + (isNaN(turnScore) ? 0 : turnScore);
             avgComponents.responsiveness += Math.min(1, responsiveness / 3);
             });
-            //Divide by number of rounds to get average
-            //for (let key in avgComponents) {
-              //  avgComponents[key] /= genomeMetrics.length;
-            //}
-            //Alpha Rolling Fitness (EMA)
-            /*const alpha = 0.4;
-            //const genome = this.genomes[g];
-            if (!genome.metrics) {
-                genome.metrics = avgComponents;
-                genome.evaluations = 1;
-            } else {
-                for (let key in avgComponents) {
-                    genome.metrics[key] = (1- alpha) * genome.metrics[key] + alpha * avgComponents[key];
-                }
-                genome.evaluations++;
-            }*/
             //Recompute Weighted Total Fitness
             //Removing EMA since we are now evaluating fitness every round for each genome, so we want the most recent performance to be reflected in selection pressure without smoothing. This allows the population to adapt more quickly to changes and encourages exploration of new behaviors.
             let totalFitness = 0;
@@ -167,43 +152,11 @@ export class Population {
             this.fitnessScores[g] = genome.fitness;
             //this.fitnessScores[g] = genomeMetrics.length > 0 ? fitness * 5 : 0;
         }
-    
-        //REMOVE BELOW ONCE TESTED THE ABOVE SETUP
-        /*
-        // FITNESS COMPONENT 1: [0, 1]
-        const competitiveRatio = Math.min(npcStats.score / 
-            Math.max(1, playerStats.score), 1.5);
-        const competitiveTerm = competitiveRatio / 1.5;
-        // FITNESS COMPONENT 2: [0, 1]
-        const scoreDiff = Math.abs(npcStats.score - playerStats.score);
-        const closenessTerm = Math.max(0, (100 - scoreDiff * 2) / 100);
-        // FITNESS COMPONENT 3: [0, 1]
-        const scoreRatio = 0.5 * (npcStats.score / npcStats.timeSurvived) + 0.5 * (npcStats.score / (npcStats.score + playerStats.score));
-        const scoreRatioExpec = 0.5 * (playerStats.score / playerStats.timeSurvived) + 0.5 * (playerStats.score / (playerStats.score + npcStats.score)); 
-        let adaptabilityTerm = Math.max(0, (100 - Math.abs((scoreRatio * 100) - (scoreRatioExpec * 100))) / 100);
-        // FITNESS COMPONENT 4: [0, 1]
-        const accuracy =  (npcStats.targetsHit / Math.max(1, npcStats.ballsThrown)) * 100;
-        const avoidance = (npcStats.framesSafeDistance / npcStats.totalFrames) * 100;
-        let behavioralTerm = (accuracy + avoidance) / 200;
-        // FITNESS COMPONENT 5: [0, 1]
-        const latencyScore = Math.max(0, 100 - npcStats.avgActionLatency * 10);
-        const jumpScore = Math.max(0, 100 - Math.abs(npcStats.measuredJumpFrequency - playerStats.jumpFrequency));
-        const turnScore = Math.min(0, 100 - Math.abs(npcStats.turnSpeed - playerStats.turnSpeed) * 5);
-        let responsivenessTerm = (latencyScore + jumpScore + turnScore) / 300;
-        // FINAL WEIGHTED FITNESS: [0, 5]
-        const fitness = 
-        (competitiveWeight * competitiveTerm) +
-        (closenessWeight * closenessTerm) +
-        (adaptabilityWeight * adaptabilityTerm) +
-        (behavioralWeight * behavioralTerm) +
-        (responsivenessWeight * responsivenessTerm);*/
-        //return fitness * 5; // Range: [0, 5]
     }
     findLowestFitnessIndex() {
         const kPercent = 0.2;
         const k = Math.max(1, Math.floor(this.genomes.length * kPercent));
         let lowestIndex = 0;
-        //let lowestFitness = this.fitnessScores[0];
         //Sort by fitness ascending worst to best
         const sortedFitness = Array.from({length: this.genomes.length}, (_, i) => i)
         .sort((a,b) => this.genomes[a].fitness - this.genomes[b].fitness);
@@ -211,12 +164,6 @@ export class Population {
         const worstPool = sortedFitness.slice(0, k);
         //Pick a random index from the worst pool
         lowestIndex = worstPool[Math.floor(Math.random() * worstPool.length)];
-        /*for (let i = 0; i < this.fitnessScores.length; i++) {
-            if (this.fitnessScores[i] < lowestFitness) {
-                lowestFitness = this.fitnessScores[i];
-                lowestIndex = i;
-            }
-        }*/
         return lowestIndex;
     }
     findBestGenomeIndex() {
