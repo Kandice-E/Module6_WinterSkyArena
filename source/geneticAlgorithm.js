@@ -16,7 +16,7 @@ export class Genome {
         this.evaluations = 0;
         this.metrics = {
             competitive: 0,
-            closeness: 0,
+            //closeness: 0,
             adaptability: 0,
             behavioral: 0,
             responsiveness: 0
@@ -84,7 +84,7 @@ export class Population {
     evaluateFitness(roundMetrics) {
         const weights = {
             competitive: 0.45, // Primary focus on outperforming player
-            closeness: 0.30, // Core Skill: Balancing score competitiveness without extreme risk
+            //closeness: 0.30, // Core Skill: Balancing score competitiveness without extreme risk
             adaptability: 0.10, // Secondary Reduced emphasis to allow for more diverse strategies that may not always outperform but show potential
             behavioral: 0.10, // Secondary
             responsiveness: 0.05 // Low Impact: Encourages quicker reactions and efficient play but allows for some latency in exchange for other strengths
@@ -97,7 +97,7 @@ export class Population {
             //Compute average terms across the rounds for this genome
             let avgComponents = {
                 competitive: 0,
-                closeness: 0,
+                //closeness: 0,
                 adaptability: 0,
                 behavioral: 0,
                 responsiveness:0
@@ -112,13 +112,18 @@ export class Population {
             // FITNESS COMPONENT 1: [0, 1]
             const winBonus = npcStats.score > playerStats.score ? 1 : 0; // Add a win bonus to strongly reward outperforming the player
             const competitiveRatio = npcStats.score / Math.max(1, playerStats.score);
-            const competitive = Math.min(competitiveRatio / 1.5, 1);
-            avgComponents.competitive += 0.7 * competitive + 0.3 * winBonus; // Weight the competitive ratio and win bonus to encourage both consistent competitiveness and outright wins
+            const normalizedRatio = Math.min(competitiveRatio / 1.5, 1); // Normalize to [0, 1] with 1.5 as a reasonable upper bound for competitiveness
+            const diff = (npcStats.score - playerStats.score) / 50; // Normalize score difference to a reasonable range
+            const diffNormalized = Math.max(-1, Math.min(1, diff)); // Clamp to [-1, 1]
+            const diffScore = (diffNormalized + 1) / 2; // Convert to [0, 1]
+            const competitive = 0.4 * normalizedRatio + 0.4 * diffScore + 0.2 * winBonus; // Combine competitive ratio, score difference, and win bonus for a more nuanced competitiveness score;
+            const epsilon = 0.05;
+            avgComponents.competitive += epsilon + (1 - epsilon) * competitive; // Add small epsilon to prevent zero fitness and allow for some selection pressure even on less competitive genomes
             // FITNESS COMPONENT 2: [0, 1]
-            const scoreDiff = Math.abs(npcStats.score - playerStats.score);
-            if (npcStats.score < playerStats.score) { // Only reward closeness when losing
-                avgComponents.closeness += Math.max(0, (100 - scoreDiff * 2) / 100);
-            }
+            //const scoreDiff = Math.abs(npcStats.score - playerStats.score);
+            //if (npcStats.score < playerStats.score) { // Only reward closeness when losing
+            //    avgComponents.closeness += Math.max(0, (100 - scoreDiff * 2) / 100);
+            //}
             // FITNESS COMPONENT 3: [0, 1]
             const scoreRatio = 0.5 * (npcStats.score / npcTime) + 0.5 * (npcStats.score / (npcStats.score + playerStats.score));
             const scoreRatioExpec = 0.5 * (playerStats.score / playerTime) + 0.5 * (playerStats.score / (playerStats.score + npcStats.score)); 

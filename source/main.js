@@ -714,7 +714,7 @@ function exportMetricsToCSV() {
         // Genome Fitness and Component Values
         'GenomeFitness',
         'Competitive',
-        'Closeness',
+        //'Closeness',
         'Adaptability',
         'Behavioral',
         'Responsiveness',
@@ -772,7 +772,7 @@ function exportMetricsToCSV() {
             // Genome fitness and components
             genome.fitness.toFixed(4),
             genome.metrics.competitive.toFixed(4),
-            genome.metrics.closeness.toFixed(4),
+            //genome.metrics.closeness.toFixed(4),
             genome.metrics.adaptability.toFixed(4),
             genome.metrics.behavioral.toFixed(4),
             genome.metrics.responsiveness.toFixed(4),
