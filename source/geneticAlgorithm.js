@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { NPC } from './npc';
+import { generationsCompleted } from './main';
 import { mx_bilerp_0 } from 'three/src/nodes/materialx/lib/mx_noise.js';
 
 export class Genome {
@@ -43,15 +44,22 @@ export class Population {
         this.fitnessScores = [];
     }
     mutate(genome) {
-        const mutationRate = 0.05; // 5% chance to mutate each gene for tiny population
-        const noiseStdDev = 0.1;  // 10% of range
+        const baseMutationRate = 0.25; // Base 25% chance to mutate each gene
+        const baseNoiseStdDev = 0.1; // Base noise at 10% of gene range
+        const mutationRate = baseMutationRate + (1 - generationsCompleted / 50) * 0.25; // Increase mutation rate in early generations to encourage exploration, then gradually reduce to allow for convergence. At generation 0, mutationRate is 0.5 (50%), and it decreases to 0.25 (25%) by generation 50, then remains constant.
+        const noiseStdDev = baseNoiseStdDev + (1 - generationsCompleted / 50) * 0.15;  // starts at 0.25 decays to 0.1
 
         Object.keys(GENE_RANGES).forEach(key => {
             if (Math.random() < mutationRate) {
                 const {min, max} = GENE_RANGES[key];
                 const range = max - min;
-                const noise = gaussianRandom(0, noiseStdDev * range);
-                genome.behavior[key] += noise;
+                if (Math.random() < 0.05) {
+                    //Occasional BIG mutation to escape local optima
+                    genome.behavior[key] = min + Math.random() * range;
+                } else {
+                    const noise = gaussianRandom(0, noiseStdDev * range);
+                    genome.behavior[key] += noise;
+                }
                 //Clamp to range
                 genome.behavior[key] = Math.max(min, Math.min(max, genome.behavior[key]));
             }
@@ -83,11 +91,11 @@ export class Population {
     //-----Refactor fitness evaluation to be done on each genome in the population-----//
     evaluateFitness(roundMetrics) {
         const weights = {
-            competitive: 0.45, // Primary focus on outperforming player
+            competitive: 0.55, // Primary focus on outperforming player
             //closeness: 0.30, // Core Skill: Balancing score competitiveness without extreme risk
-            adaptability: 0.10, // Secondary Reduced emphasis to allow for more diverse strategies that may not always outperform but show potential
-            behavioral: 0.10, // Secondary
-            responsiveness: 0.05 // Low Impact: Encourages quicker reactions and efficient play but allows for some latency in exchange for other strengths
+            adaptability: 0.15, // Secondary Reduced emphasis to allow for more diverse strategies that may not always outperform but show potential
+            behavioral: 0.20, // Secondary
+            responsiveness: 0.10 // Low Impact: Encourages quicker reactions and efficient play but allows for some latency in exchange for other strengths
         };
         //Start by identifying and storing each genome's metrics
         for (let g = 0; g < this.genomes.length; g++) {
@@ -111,13 +119,15 @@ export class Population {
             const totalFrames = Math.max(npcStats.totalFrames, 1);
             // FITNESS COMPONENT 1: [0, 1]
             const winBonus = npcStats.score > playerStats.score ? 1 : 0; // Add a win bonus to strongly reward outperforming the player
-            const competitiveRatio = npcStats.score / Math.max(1, playerStats.score);
+            const competitiveRatio = Math.max(0, npcStats.score) / Math.max(1, playerStats.score);
             const normalizedRatio = Math.min(competitiveRatio / 1.5, 1); // Normalize to [0, 1] with 1.5 as a reasonable upper bound for competitiveness
-            const diff = (npcStats.score - playerStats.score) / 50; // Normalize score difference to a reasonable range
-            const diffNormalized = Math.max(-1, Math.min(1, diff)); // Clamp to [-1, 1]
-            const diffScore = (diffNormalized + 1) / 2; // Convert to [0, 1]
-            const competitive = 0.4 * normalizedRatio + 0.4 * diffScore + 0.2 * winBonus; // Combine competitive ratio, score difference, and win bonus for a more nuanced competitiveness score;
-            const epsilon = 0.05;
+            const maxScore = Math.max(5, Math.abs(playerStats.score), Math.abs(npcStats.score)); //Adds low performance sensitivity when scores are low
+            const diffNormalized = (npcStats.score - playerStats.score) / maxScore; // [-1,1]
+            const diffScore = (diffNormalized + 1) / 2; // [0,1]
+            const baseRaw = 0.4 * normalizedRatio + 0.4 * diffScore + 0.2 * winBonus;
+            const base = Math.max(0, Math.min(1, baseRaw));
+            const competitive = Math.pow(base, 2.0); // amplify differences with exponentiation to increase selection pressure for more competitive genomes, while still allowing some credit for close performance to encourage incremental improvements. The 1.5 exponent provides a good balance between rewarding competitiveness and maintaining diversity in a small population.
+            const epsilon = 0.02;
             avgComponents.competitive += epsilon + (1 - epsilon) * competitive; // Add small epsilon to prevent zero fitness and allow for some selection pressure even on less competitive genomes
             // FITNESS COMPONENT 2: [0, 1]
             //const scoreDiff = Math.abs(npcStats.score - playerStats.score);
@@ -129,16 +139,16 @@ export class Population {
             const scoreRatioExpec = 0.5 * (playerStats.score / playerTime) + 0.5 * (playerStats.score / (playerStats.score + npcStats.score)); 
             avgComponents.adaptability += Math.max(0, (100 - Math.abs((scoreRatio * 100) - (scoreRatioExpec * 100))) / 100);
             // FITNESS COMPONENT 4: [0, 1]
-            const accuracy = (npcStats.targetsHit / Math.max(1, npcStats.ballsThrown)) * 0.4;
-            const avoidance = (npcStats.framesSafeDistance / Math.max(1, totalFrames)) * 0.4; // Take max to prevent division by zero
-            const activity = npcStats.ballsThrown / Math.max(1, totalFrames) * 0.2; //Activity penelty (prevents camping)
-            avgComponents.behavioral += (accuracy + avoidance + activity);
+            const accuracy = (npcStats.targetsHit / Math.max(1, npcStats.ballsThrown));
+            const avoidance = (npcStats.framesSafeDistance / Math.max(1, totalFrames)); // Take max to prevent division by zero
+            const activity = npcStats.ballsThrown / Math.max(1, totalFrames); //Activity penelty (prevents camping)
+            avgComponents.behavioral += (0.4 * accuracy + 0.4 * avoidance + 0.2 * activity);
             // FITNESS COMPONENT 5: [0, 1]
             const latencyScore = inverseRangeScore(npcStats.avgActionLatency || 0.1, 0.05, 0.3);
             const jumpScore = rangeScore(npcStats.measuredJumpFrequency || 4, 3, 7);
             const turnScore = rangeScore(npcStats.turnSpeed || 5, 5, 10);
-            const responsiveness = (isNaN(latencyScore) ? 0 : latencyScore) + (isNaN(jumpScore) ? 0 : jumpScore) + (isNaN(turnScore) ? 0 : turnScore);
-            avgComponents.responsiveness += Math.min(1, responsiveness / 3);
+            const responsiveness = ((latencyScore || 0) + (jumpScore || 0) + (turnScore || 0)) / 3; // Average of the three subcomponents
+            avgComponents.responsiveness += Math.min(1, responsiveness);
             });
             //Recompute Weighted Total Fitness
             //Removing EMA since we are now evaluating fitness every round for each genome, so we want the most recent performance to be reflected in selection pressure without smoothing. This allows the population to adapt more quickly to changes and encourages exploration of new behaviors.
