@@ -41,7 +41,7 @@ export class NPC {
         this.mesh.receiveShadow = true;
         this.mesh.position.copy(startPos);
         this.scene.add(this.mesh);
-
+        this.isInitialized = false; // Flag to indicate if NPC has completed initial setup
         this.velocity = new THREE.Vector3();
         this.onFloor = false;
         this.targetIndex = -1;

@@ -27,9 +27,9 @@ export class Genome {
 }
 // Gene ranges for mutation (defined outside of class for easy access in mutation function)
 const GENE_RANGES = {
-    jumpFrequency: { min: 2, max: 6 }, // Keep original range for evolution flexibility
+    jumpFrequency: { min: 1.5, max: 7 }, // Keep original range for evolution flexibility
     ballThrowPower: { min: 50, max: 90 }, // Keep original range for evolution flexibility
-    ballThrowFrequency: { min: 4, max: 7 }, // Keep original range for evolution flexibility
+    ballThrowFrequency: { min: 3, max: 7 }, // Keep original range for evolution flexibility
     targetSelectionRadius: { min: 10, max: 60 }, // Expanded for more exploration potential
     enemyAvoidanceDistance: { min: 5, max: 15 }, // Expanded range
     movementSpeedMultiplier: { min: 0.8, max: 2 } // Expanded for more variation
@@ -44,8 +44,8 @@ export class Population {
         this.fitnessScores = [];
     }
     mutate(genome) {
-        const baseMutationRate = 0.25; // Base 25% chance to mutate each gene
-        const baseNoiseStdDev = 0.1; // Base noise at 10% of gene range
+        const baseMutationRate = 0.4; // Base 25% chance to mutate each gene
+        const baseNoiseStdDev = 0.2; // Base noise at 10% of gene range
         const mutationRate = baseMutationRate + (1 - generationsCompleted / 50) * 0.25; // Increase mutation rate in early generations to encourage exploration, then gradually reduce to allow for convergence. At generation 0, mutationRate is 0.5 (50%), and it decreases to 0.25 (25%) by generation 50, then remains constant.
         const noiseStdDev = baseNoiseStdDev + (1 - generationsCompleted / 50) * 0.15;  // starts at 0.25 decays to 0.1
 
@@ -209,7 +209,7 @@ export class Population {
     }
     tournamentSelection() {
         // Implement selection logic (e.g., tournament selection, roulette wheel)
-        const selectionSize = 3;
+        const selectionSize = 2;
         let bestIndividual = null;
         let bestIndex = -1;
         for (let i = 0; i < selectionSize; i++) {

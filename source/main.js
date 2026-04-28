@@ -226,6 +226,9 @@ loader.load('./assets/collision-world.glb', ( gltf ) => {
             const npc = new NPC({ scene, startPos: new THREE.Vector3(5 + i * 2, 0.75, 5 + i) });
             npcs.push(npc);
         }
+        for (let i = 0; i < NUM_NPCS; i++) {
+            npcs[i].isInitialized = true;
+        }
         //console.log("3 NPCs initialized after world load"); //Debug Line
     });
 // Add Snowflake Points //
@@ -439,9 +442,79 @@ startButton.addEventListener('click', () => {
     startRound(true); // Show countdown for first slot
 });
 //-----END START GAME-----//
-
-// New function for round state logic: start, end, reset
+function shuffleGenomes(generaltionalPopulation) {
+    for (let i = generaltionalPopulation.genomes.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [generaltionalPopulation.genomes[i], generaltionalPopulation.genomes[j]] = [generaltionalPopulation.genomes[j], generaltionalPopulation.genomes[i]];
+    }
+}
+//-----START ROUND LOGIC-----//
 function startRound(showCountdown = true) {
+    roundTransitioning = false;
+    shuffleGenomes(generationalPopulation); // Shuffle genomes at the start of each round to ensure random testing order across generations
+    // Assign genomes
+    for (let i = 0; i < NUM_NPCS; i++) {
+        const genomeIndex = i * GENOMES_PER_NPC + genomeSlotInRound;
+        const genome = generationalPopulation.genomes[genomeIndex];
+        npcs[i].behavior = genome.behavior;
+        // Reset NPC state for new round
+        npcs[i].targetIndex = -1;
+        npcs[i].actionLatencies.length = 0;
+        npcs[i].framesSinceTargetDetection = 0;
+        npcs[i].isInitialized = true; // Ensure NPCs are marked as initialized so they will use their assigned genomes
+    }
+    // Wait until all NPCs are ready before starting the timer and animation loop
+    waitForNPCInitialization(() => {
+        beginCountdownAndRound(showCountdown);
+    });
+}
+function waitForNPCInitialization(callback) {
+    const check = () => {
+        const allReady = npcs.every(npc => npc.isInitialized);
+        if (allReady) {
+            callback();
+            for (let i = 0; i < npcs.length; i++) {
+                npcs[i].isInitialized = false; // Reset initialization flag for next round after starting the round
+            }
+            console.log("All NPCs initialized, starting round...");// Debugging line to confirm all NPCs are ready before starting
+        } else {
+            requestAnimationFrame(check);
+        }
+    };
+    check();
+}
+function beginCountdownAndRound(showCountdown) {
+    timer = new THREE.Timer();
+    timer.getDelta();
+    lastFrameTime = performance.now();
+    frameCount = 0;
+    deltaTimeSum = 0;
+    isFirstFrameOfRound = true;
+    roundDisplay.innerText = `Generation: ${generationsCompleted + 1}
+    Slot: ${genomeSlotInRound + 1}/2`;
+    if (showCountdown) {
+        showRoundCountdown(3, () => startGameplay());
+    } else {
+        startGameplay();
+    }
+}
+function startGameplay() {
+    roundRunning = true;
+    if (backgroundMusic.paused) {
+        backgroundMusic.play();
+    }
+    for (let i = 0; i < NUM_NPCS; i++) {
+        npcMetricsArray[i].startTime = performance.now();
+    }
+    if (showRoundCountdown) {
+        // Set startTime AFTER countdown finishes, right when gameplay begins
+        startTimer();
+    }
+    playerStats.startTime = performance.now();
+    animate();
+}
+// New function for round state logic: start, end, reset
+/*function startRound(showCountdown = true) {
     roundTransitioning = false;
     // Assign genomes to all 3 NPCs based on current slot (0 or 1)
     // NPC 0 tests genomes 0-1, NPC 1 tests genomes 2-3, NPC 2 tests genomes 4-5
@@ -452,6 +525,7 @@ function startRound(showCountdown = true) {
         npcs[i].targetIndex = -1;
         npcs[i].actionLatencies.length = 0;
         npcs[i].framesSinceTargetDetection = 0;
+        npcs[i].isInitialized = false; // Reset initialization flag to allow NPCs to re-initialize with new behavior
     }
     // Create fresh timer //
     timer = new THREE.Timer();
@@ -488,7 +562,7 @@ function startRound(showCountdown = true) {
         playerStats.startTime = performance.now();
         animate();
     }
-}
+}*/
 function updateMetrics() {
     // Player metrics (collected once, shared across all NPCs)
     playerStats.safeFrames = player.safeFrames || 0; // Ensure safeFrames is defined
@@ -850,10 +924,16 @@ function completeGeneration() {
             console.log(`Evolving child ${iteration+1} of 5... replacing genome at index ${worstIndex}`);
             // Tournament selection: pick 2 parents from the population
             const parent1Obj = generationalPopulation.tournamentSelection();
-            const parent2Obj = generationalPopulation.tournamentSelection();
+            let parent2Obj = generationalPopulation.tournamentSelection();
             // Extract the genome objects (tournamentSelection returns {genome, index, fitness})
             const parent1 = parent1Obj.genome;
             const parent2 = parent2Obj.genome;
+            //Prevent Identical Parents
+            let attempts = 0;
+            while (parent2Obj.index === parent1Obj.index && attempts < 5) {
+                parent2Obj = generationalPopulation.tournamentSelection();
+                attempts++;
+            }
             // Crossover
             const child = generationalPopulation.crossover(parent1, parent2);
             // Mutation
@@ -948,12 +1028,12 @@ function animate() {
     if (elapsedSinceLastUpdate < TARGET_FRAME_TIME && !isFirstFrameOfRound) {
         return; // Skip this frame, will render on next RAF callback
     }
-    console.log("Animation loop running...");
+    //console.log("Animation loop running...");
     animatePoints(points);
     // Calculate deltaTime for physics update
     let rawDelta = elapsedSinceLastUpdate / 1000; // Convert ms to seconds
     lastFrameTime = currentFrameTime;
-    console.log(`Frame time delta: ${rawDelta.toFixed(4)}s (throttled to ${TARGET_FPS}fps)`);
+    //console.log(`Frame time delta: ${rawDelta.toFixed(4)}s (throttled to ${TARGET_FPS}fps)`);
     // Handle first frame (may have unusual timing due to UI countdown)
     if (isFirstFrameOfRound) {
         console.log("First frame detected, using default deltaTime");
@@ -961,7 +1041,7 @@ function animate() {
         isFirstFrameOfRound = false;
     }
     let deltaTime = Math.min( 0.05, rawDelta ) / STEPS_PER_FRAME;
-    console.log(`Calculated deltaTime for this frame: ${deltaTime.toFixed(4)} seconds`);//Debugging line to check final delta time used in updates
+    //console.log(`Calculated deltaTime for this frame: ${deltaTime.toFixed(4)} seconds`);//Debugging line to check final delta time used in updates
     //////////DEBUG LINES REMOVE AFTER TESTING
     // Track fps data
     frameCount++;
