@@ -42,7 +42,7 @@ const vector2 = new THREE.Vector3(); // Vector for collision detection
 const vector3 = new THREE.Vector3(); // Vector for collision detection
 // New Globals for Rounds and Metrics Collection //
 export let generationsCompleted = 0;
-const MAX_GENERATIONS = 2; // Limit total generations to prevent infinite testing
+const MAX_GENERATIONS = 10; // Limit total generations to prevent infinite testing
 let currentRound = 1;
 const MAX_ROUND_TIME = 75; // 75 seconds max per round to prevent infinite loops
 const MAX_ROUNDS = 1; // 1 round per generation: all 6 genomes tested via 3 NPCs in parallel
@@ -52,6 +52,7 @@ let genomeSlotInRound = 0; // 0 or 1 (which genome slot we're testing across all
 const genomeTestWindow = 30; // 30 seconds per genome slot
 let roundRunning = false;
 let roundTransitioning = false; // Flag to prevent continueRound from being called multiple times
+let animationActive = false; // Flag to track if the animation loop is active
 let roundMetrics = [];
 let playerStats = {
     startTime: 0,
@@ -226,10 +227,6 @@ loader.load('./assets/collision-world.glb', ( gltf ) => {
             const npc = new NPC({ scene, startPos: new THREE.Vector3(5 + i * 2, 0.75, 5 + i) });
             npcs.push(npc);
         }
-        for (let i = 0; i < NUM_NPCS; i++) {
-            npcs[i].isInitialized = true;
-        }
-        //console.log("3 NPCs initialized after world load"); //Debug Line
     });
 // Add Snowflake Points //
 const points = addSFPoints();
@@ -251,17 +248,19 @@ roundDisplay.innerText = `Generation: ${generationsCompleted + 1}`;
 document.body.appendChild(roundDisplay);
 // Update Score Display Function
 export function updateScoreDisplay(score) {
-    console.log("Score updated:", score.counter); // Debugging line
-    console.log("NPC Score updated:", score.npcCounter1); // Debugging line
-    const scoreElement = document.getElementById('score');
-    if (scoreElement) {
-        console.log("Score element found!"); // Debugging line
-        scoreElement.innerText = `Player Score: ${player.score}
-        NPC 1 Score: ${score.npcCounter1}
-        NPC 2 Score: ${score.npcCounter2}
-        NPC 3 Score: ${score.npcCounter3}`;
-    } else {
-        console.error("Score element not found!");
+    if (roundRunning) {
+        console.log("Score updated:", score.counter); // Debugging line
+        console.log("NPC Score updated:", score.npcCounter1); // Debugging line
+        const scoreElement = document.getElementById('score');
+        if (scoreElement) {
+            console.log("Score element found!"); // Debugging line
+            scoreElement.innerText = `Player Score: ${player.score}
+            NPC 1 Score: ${score.npcCounter1}
+            NPC 2 Score: ${score.npcCounter2}
+            NPC 3 Score: ${score.npcCounter3}`;
+        } else {
+            console.error("Score element not found!");
+        }
     }
 }
 //-----END ADD SCORE DISPLAY-----//
@@ -298,6 +297,7 @@ function startTimer() {
                 console.log("Timer reached 0, all generations completed.");
                 roundRunning = false; // Signal animate loop to stop
                 cancelAnimationFrame(animationFrameId); // Cancel pending animation frame
+                animationActive = false;
                 endGame();
                 return;
             }
@@ -381,6 +381,7 @@ guideButton.addEventListener('click', () => {
         }
         roundRunning = false; // Signal animate loop to stop
         cancelAnimationFrame(animationFrameId); // Cancel pending animation frame
+        animationActive = false;
         restartGame(); // Always call restartGame directly
     });
 //-----END RESET GAME BUTTON-----//
@@ -461,7 +462,12 @@ function startRound(showCountdown = true) {
         npcs[i].targetIndex = -1;
         npcs[i].actionLatencies.length = 0;
         npcs[i].framesSinceTargetDetection = 0;
-        npcs[i].isInitialized = true; // Ensure NPCs are marked as initialized so they will use their assigned genomes
+        npcs[i].isInitialized = false; // Reset initialization flag to allow NPCs to re-initialize with new behavior
+    }
+    // Start animation loop that checks for NPC initialization before starting the timer and gameplay
+    if (!animationActive) {
+        animationActive = true;
+        animate(); // Start the animation loop to allow NPCs to initialize and run their first frame logic
     }
     // Wait until all NPCs are ready before starting the timer and animation loop
     waitForNPCInitialization(() => {
@@ -472,11 +478,8 @@ function waitForNPCInitialization(callback) {
     const check = () => {
         const allReady = npcs.every(npc => npc.isInitialized);
         if (allReady) {
-            callback();
-            for (let i = 0; i < npcs.length; i++) {
-                npcs[i].isInitialized = false; // Reset initialization flag for next round after starting the round
-            }
             console.log("All NPCs initialized, starting round...");// Debugging line to confirm all NPCs are ready before starting
+            callback();
         } else {
             requestAnimationFrame(check);
         }
@@ -493,12 +496,12 @@ function beginCountdownAndRound(showCountdown) {
     roundDisplay.innerText = `Generation: ${generationsCompleted + 1}
     Slot: ${genomeSlotInRound + 1}/2`;
     if (showCountdown) {
-        showRoundCountdown(3, () => startGameplay());
+        showRoundCountdown(3, () => startGameplay(showCountdown));
     } else {
         startGameplay();
     }
 }
-function startGameplay() {
+function startGameplay(showCountdown) {
     roundRunning = true;
     if (backgroundMusic.paused) {
         backgroundMusic.play();
@@ -506,12 +509,11 @@ function startGameplay() {
     for (let i = 0; i < NUM_NPCS; i++) {
         npcMetricsArray[i].startTime = performance.now();
     }
-    if (showRoundCountdown) {
+    if (showCountdown) {
         // Set startTime AFTER countdown finishes, right when gameplay begins
         startTimer();
     }
     playerStats.startTime = performance.now();
-    animate();
 }
 // New function for round state logic: start, end, reset
 /*function startRound(showCountdown = true) {
@@ -1015,10 +1017,13 @@ let animationFrameId; // Global variable to store the animation frame ID
 let lastCameraY = 0;
 function animate() {
     // Check if we should stop the animation loop
-    if(!roundRunning) {
-        cancelAnimationFrame(animationFrameId);
+    if (!animationActive) {
         return;
     }
+    //if(!roundRunning) {
+      //  cancelAnimationFrame(animationFrameId);
+        //return;
+    //}
     // Always request next frame for smooth display
     animationFrameId = requestAnimationFrame(animate);
     // Calculate actual elapsed time since last update
@@ -1053,7 +1058,10 @@ function animate() {
         deltaTimeSum = 0;
     }////////DEBUG LINES REMOVE AFTER TESTING
     // Collect Live Metrics
-    collectLiveMetrics(deltaTime);
+    if (roundRunning) {
+        collectLiveMetrics(deltaTime);
+    }
+    //collectLiveMetrics(deltaTime);
     // we look for collisions in substeps to mitigate the risk of
     // an object traversing another too quickly for detection.
     const elapsedTimeInRound = (performance.now() - roundStartTime) / 1000; // Seconds elapsed since round started
@@ -1065,14 +1073,18 @@ function animate() {
         // Update all 3 NPCs
         for (let npcIdx = 0; npcIdx < NUM_NPCS; npcIdx++) {
             const npc = npcs[npcIdx];
-            npc.update(deltaTime, worldOctree, targets, enemies, (pos, vel) => npcSpawnBall(pos, vel, npcIdx), elapsedTimeInRound, GRAVITY);
-            checkForEnemyCollisions(npc.collider, enemies, camera, player, score, npc, npcIdx);
-            teleportPlayerIfOob(camera, npc.collider, npc, player);
+            npc.update(deltaTime, worldOctree, targets, enemies, (pos, vel) => npcSpawnBall(pos, vel, npcIdx), elapsedTimeInRound, GRAVITY, roundRunning);
+            if (roundRunning) {
+                checkForEnemyCollisions(npc.collider, enemies, camera, player, score, npc, npcIdx);
+                teleportPlayerIfOob(camera, npc.collider, npc, player);
+            }
+            if (roundRunning) {
+                checkBallTargetCollisions(spheres, targets, score, npcs, worldOctree, player, playerStats);
+            }
         }
-        checkBallTargetCollisions(spheres, targets, score, npcs, worldOctree, player, playerStats);
+        stats.update();
+        renderer.render(scene, camera);
     }
-    stats.update();
-    renderer.render(scene, camera);
 };
 //-----END GAME ANIMATION LOOP-----//
 
@@ -1086,6 +1098,7 @@ export function endGame() {
     backgroundMusic.pause(); // Stop the background music
     backgroundMusic.currentTime = 0; // Reset the music to the beginning
     roundRunning = false;
+    animationActive = false;
     // Stop/Reset the Timer
     clearInterval(timerInterval);
     // Hide the start screen and round countdown
@@ -1117,6 +1130,7 @@ function restartGame() {
     backgroundMusic.pause(); // Stop the background music
     backgroundMusic.currentTime = 0; // Reset the music to the beginning
     roundRunning = false; // Reset roundRunning to false
+    animationActive = false;
     console.log("Restarting game..."); // Debugging line
     // Reset metrics and generation tracking
     allGenerationsCSVData = [];

@@ -42,6 +42,7 @@ export class NPC {
         this.mesh.position.copy(startPos);
         this.scene.add(this.mesh);
         this.isInitialized = false; // Flag to indicate if NPC has completed initial setup
+        this.initFrames = 0; // Counter to track frames since creation for initialization purposes
         this.velocity = new THREE.Vector3();
         this.onFloor = false;
         this.targetIndex = -1;
@@ -65,7 +66,7 @@ export class NPC {
     getCenter(out = new THREE.Vector3()) {
         return out.copy(this.collider.start).add(this.collider.end).multiplyScalar(0.5);
     }
-    update(delta, worldOctree, targets, enemies, spawnBallFn, time, GRAVITY = 30) {
+    update(delta, worldOctree, targets, enemies, spawnBallFn, time, GRAVITY = 30, roundRunning) {
         // Note: totalFrames and framesSafeDistance are tracked in collectLiveMetrics (main.js) not here
         // This prevents duplicate tracking and ensures proper reset between genome tests
         this.framesSinceTargetDetection += 1;
@@ -141,6 +142,15 @@ export class NPC {
         }
         // Sync mesh
         this.mesh.position.copy(this.getCenter());
+        // Mark initialization progress
+        this.initFrames++;
+        if (!this.isInitialized && this.initFrames > 5) {
+            this.isInitialized = true; // Mark as initialized after first update to ensure metrics are only collected once NPC has started acting in the environment
+        }
+        // STOP HERE if round has not started
+        if (!roundRunning) {
+            return;
+        }
         // Throwing balls
         const timeSinceLastThrow = time - this.lastThrow;
         const shouldThrow = timeSinceLastThrow > this.behavior.ballThrowFrequency && this.targetIndex >= 0;
@@ -159,6 +169,10 @@ export class NPC {
             this.actionLatencies.push(this.lastActionLatency);
             this.framesSinceTargetDetection = 0;
             this.lastTargetIndex = this.targetIndex; // Update after recording latency
+        }
+        // Mark as initialized after first update to ensure metrics are only collected once NPC has started acting in the environment
+        if (!this.isInitialized) {
+            this.isInitialized = true;
         }
     }
     isNpcFarFromAllEnemies(enemies) {// Note: This method is called from collectLiveMetrics() in main.js to evaluate fitness component of enemy avoidance   
