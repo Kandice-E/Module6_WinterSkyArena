@@ -42,6 +42,7 @@ export class NPC {
         this.mesh.position.copy(startPos);
         this.scene.add(this.mesh);
         this.isInitialized = false; // Flag to indicate if NPC has completed initial setup
+        this.hasActed = false; // Flag to track if NPC has performed its first action (jump or throw) for initialization purposes
         this.initFrames = 0; // Counter to track frames since creation for initialization purposes
         this.velocity = new THREE.Vector3();
         this.onFloor = false;
@@ -143,9 +144,17 @@ export class NPC {
         // Sync mesh
         this.mesh.position.copy(this.getCenter());
         // Mark initialization progress
-        this.initFrames++;
-        if (!this.isInitialized && this.initFrames > 5) {
-            this.isInitialized = true; // Mark as initialized after first update to ensure metrics are only collected once NPC has started acting in the environment
+        //this.initFrames++;
+        //if (!this.isInitialized && this.initFrames > 5) {
+          //  this.isInitialized = true; // Mark as initialized after first update to ensure metrics are only collected once NPC has started acting in the environment
+        //}
+        if (!this.hasActed) {
+            const hasMovement = this.velocity.length() > 0.5;
+            const hasTarget = this.targetIndex >= 0;
+            const hasJumped = this.jumpCount > 0;
+            if (hasMovement || hasTarget || hasJumped) {
+                this.hasActed = true;
+            }
         }
         // STOP HERE if round has not started
         if (!roundRunning) {
@@ -169,10 +178,6 @@ export class NPC {
             this.actionLatencies.push(this.lastActionLatency);
             this.framesSinceTargetDetection = 0;
             this.lastTargetIndex = this.targetIndex; // Update after recording latency
-        }
-        // Mark as initialized after first update to ensure metrics are only collected once NPC has started acting in the environment
-        if (!this.isInitialized) {
-            this.isInitialized = true;
         }
     }
     isNpcFarFromAllEnemies(enemies) {// Note: This method is called from collectLiveMetrics() in main.js to evaluate fitness component of enemy avoidance   

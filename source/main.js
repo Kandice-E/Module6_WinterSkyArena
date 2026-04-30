@@ -42,7 +42,7 @@ const vector2 = new THREE.Vector3(); // Vector for collision detection
 const vector3 = new THREE.Vector3(); // Vector for collision detection
 // New Globals for Rounds and Metrics Collection //
 export let generationsCompleted = 0;
-const MAX_GENERATIONS = 10; // Limit total generations to prevent infinite testing
+const MAX_GENERATIONS = 5; // Limit total generations to prevent infinite testing
 let currentRound = 1;
 const MAX_ROUND_TIME = 75; // 75 seconds max per round to prevent infinite loops
 const MAX_ROUNDS = 1; // 1 round per generation: all 6 genomes tested via 3 NPCs in parallel
@@ -224,7 +224,7 @@ loader.load('./assets/collision-world.glb', ( gltf ) => {
         // Create 3 NPCs after the world is loaded to ensure they have access to the octree for navigation
         npcs = [];
         for (let i = 0; i < NUM_NPCS; i++) {
-            const npc = new NPC({ scene, startPos: new THREE.Vector3(5 + i * 2, 0.75, 5 + i) });
+            const npc = new NPC({ scene, startPos: new THREE.Vector3(5 + i * 3, 0.75, 5 + i) });
             npcs.push(npc);
         }
     });
@@ -309,10 +309,15 @@ function startTimer() {
 //-----CREATE ROUND COUNTDOWN-----//
 const roundCountdown = document.createElement('div');
 roundCountdown.id = 'round-countdown';
+function showRoundCountdownScreen() {
+    roundCountdown.style.display = 'flex';
+    roundCountdown.textContent = `Initializing Round ${currentRound + 1}...`;
+}
 function showRoundCountdown(seconds, onFinish) {
     if (!roundCountdown.parentElement) {
         document.body.appendChild(roundCountdown);
     }
+    startScreen.style.display = 'none'; // Hide the start screen during countdown if it's still visible
     roundCountdown.style.display = 'flex';
     let value = seconds;
     roundCountdown.textContent = `Round ${generationsCompleted + 1} in ${value}`;
@@ -431,9 +436,10 @@ startButton.addEventListener('click', () => {
         console.log("Pointer lock is not active.");
     }
     console.log("Start button clicked. Starting game...");
-    startScreen.style.display = 'none'; // Hide the start screen
+    showRoundCountdownScreen(); // Show initializing round screen while NPCs prepare
+    //startScreen.style.display = 'none'; // Hide the start screen
     backgroundMusic.play(); // Start the background music
-    roundRunning = true;
+    //roundRunning = true;
     genomeSlotInRound = 0; // Start with slot 0 genomes
     resetMetricsForNextGenome(); // Initialize metrics with proper startTime for first round
     player.score = 0; // Reset player score
@@ -462,7 +468,7 @@ function startRound(showCountdown = true) {
         npcs[i].targetIndex = -1;
         npcs[i].actionLatencies.length = 0;
         npcs[i].framesSinceTargetDetection = 0;
-        npcs[i].isInitialized = false; // Reset initialization flag to allow NPCs to re-initialize with new behavior
+        npcs[i].hasActed = false; // Reset initialization flag to allow NPCs to re-initialize with new behavior
     }
     // Start animation loop that checks for NPC initialization before starting the timer and gameplay
     if (!animationActive) {
@@ -475,8 +481,10 @@ function startRound(showCountdown = true) {
     });
 }
 function waitForNPCInitialization(callback) {
+    const MIN_WARMUP_MS = 5000;
+    let roundInitStartTime = performance.now();
     const check = () => {
-        const allReady = npcs.every(npc => npc.isInitialized);
+        const allReady = npcs.every(npc => npc.hasActed) && (performance.now() - roundInitStartTime > MIN_WARMUP_MS);
         if (allReady) {
             console.log("All NPCs initialized, starting round...");// Debugging line to confirm all NPCs are ready before starting
             callback();
@@ -503,6 +511,8 @@ function beginCountdownAndRound(showCountdown) {
 }
 function startGameplay(showCountdown) {
     roundRunning = true;
+    console.log("Gameplay started and round running set to TRUE");
+    resetNpcPosition(); // Ensure NPCs are in the correct starting positions for the round
     if (backgroundMusic.paused) {
         backgroundMusic.play();
     }
@@ -946,13 +956,14 @@ function completeGeneration() {
         });
         console.log("=== AFTER EVOLUTION Gen", generationsCompleted + 1, "===");
         generationalPopulation.genomes.forEach((g, i) => {
-            console.log(`Genome ${i}:`, {id: g.id, jumpFreq: g.behavior.jumpFrequency, ballPower: g.behavior.ballThrowPower, fitness: g.fitness, competitive: g.metrics.competitive, closeness: g.metrics.closeness, adaptability: g.metrics.adaptability, behavioral: g.metrics.behavioral, responsiveness: g.metrics.responsiveness});
+            console.log(`Genome ${i}:`, {id: g.id, jumpFreq: g.behavior.jumpFrequency, ballPower: g.behavior.ballThrowPower, ballThrowFrequency: g.behavior.ballThrowFrequency, selectionRadius: g.behavior.targetSelectionRadius, enemyAvoidance: g.behavior.enemyAvoidanceDistance, speedMultiplier: g.behavior.movementSpeedMultiplier, fitness: g.fitness, competitive: g.metrics.competitive, adaptability: g.metrics.adaptability, behavioral: g.metrics.behavioral, responsiveness: g.metrics.responsiveness});
         });
         currentRound = 1;
         genomeSlotInRound = 0;
         roundMetrics = [];
         resetMetricsForNextGenome();
         resetRound();
+        roundRunning = false;
         startRound(true); // Show countdown for new generation
     } else {
         exportMetricsToCSV();
@@ -1008,6 +1019,7 @@ export function continueRound() {
         startRound(false); // false = don't show countdown for slot transition
     } else {
         // All slots tested, complete generation
+        showRoundCountdownScreen();
         genomeSlotInRound = 0; // Reset for next generation
         completeGeneration();
     }
@@ -1079,6 +1091,7 @@ function animate() {
                 teleportPlayerIfOob(camera, npc.collider, npc, player);
             }
             if (roundRunning) {
+                console.log("Round Running set to TRUE, ball target collision check active");
                 checkBallTargetCollisions(spheres, targets, score, npcs, worldOctree, player, playerStats);
             }
         }

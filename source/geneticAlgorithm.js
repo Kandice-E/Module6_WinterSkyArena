@@ -51,10 +51,12 @@ export class Population {
 
         Object.keys(GENE_RANGES).forEach(key => {
             if (Math.random() < mutationRate) {
+                console.log("Mutating genome...", {genomeId: genome.id, gene: key, oldValue: genome.behavior[key]});
                 const {min, max} = GENE_RANGES[key];
                 const range = max - min;
                 if (Math.random() < 0.05) {
                     //Occasional BIG mutation to escape local optima
+                    console.log("Big mutation triggered for genome", genome.id, "gene", key);
                     genome.behavior[key] = min + Math.random() * range;
                 } else {
                     const noise = gaussianRandom(0, noiseStdDev * range);
@@ -118,16 +120,19 @@ export class Population {
             const playerTime = Math.max(playerStats.timeSurvived, 0.001);
             const totalFrames = Math.max(npcStats.totalFrames, 1);
             // FITNESS COMPONENT 1: [0, 1]
-            const winBonus = npcStats.score > playerStats.score ? 1 : 0; // Add a win bonus to strongly reward outperforming the player
-            const competitiveRatio = Math.max(0, npcStats.score) / Math.max(1, playerStats.score);
-            const normalizedRatio = Math.min(competitiveRatio / 1.5, 1); // Normalize to [0, 1] with 1.5 as a reasonable upper bound for competitiveness
-            const maxScore = Math.max(5, Math.abs(playerStats.score), Math.abs(npcStats.score)); //Adds low performance sensitivity when scores are low
-            const diffNormalized = (npcStats.score - playerStats.score) / maxScore; // [-1,1]
+            const npcScore = Math.max(0, npcStats.score);
+            const playerScore = Math.max(0, playerStats.score);
+
+            const winBonus = npcScore > playerScore ? 1 : 0; // Add a win bonus to strongly reward outperforming the player
+            const competitiveRatio = npcScore / Math.max(1, playerScore);
+            const normalizedRatio = Math.min(competitiveRatio, 1); // Normalize to [0, 1] with 1.5 as a reasonable upper bound for competitiveness
+            const maxScore = Math.max(10, playerScore + npcScore); //Adds low performance sensitivity when scores are low
+            const diffNormalized = (npcScore - playerScore) / maxScore; // [-1,1]
             const diffScore = (diffNormalized + 1) / 2; // [0,1]
-            const baseRaw = 0.4 * normalizedRatio + 0.4 * diffScore + 0.2 * winBonus;
+            const baseRaw = 0.5 * normalizedRatio + 0.3 * diffScore + 0.2 * winBonus;
             const base = Math.max(0, Math.min(1, baseRaw));
-            const competitive = Math.pow(base, 2.0); // amplify differences with exponentiation to increase selection pressure for more competitive genomes, while still allowing some credit for close performance to encourage incremental improvements. The 1.5 exponent provides a good balance between rewarding competitiveness and maintaining diversity in a small population.
-            const epsilon = 0.02;
+            const competitive = Math.pow(base, 1.5); // amplify differences with exponentiation to increase selection pressure for more competitive genomes, while still allowing some credit for close performance to encourage incremental improvements. The 1.5 exponent provides a good balance between rewarding competitiveness and maintaining diversity in a small population.
+            const epsilon = 0.1; // Stronger floor to avoid dead genomes
             avgComponents.competitive += epsilon + (1 - epsilon) * competitive; // Add small epsilon to prevent zero fitness and allow for some selection pressure even on less competitive genomes
             // FITNESS COMPONENT 2: [0, 1]
             //const scoreDiff = Math.abs(npcStats.score - playerStats.score);
@@ -135,9 +140,10 @@ export class Population {
             //    avgComponents.closeness += Math.max(0, (100 - scoreDiff * 2) / 100);
             //}
             // FITNESS COMPONENT 3: [0, 1]
-            const scoreRatio = 0.5 * (npcStats.score / npcTime) + 0.5 * (npcStats.score / (npcStats.score + playerStats.score));
-            const scoreRatioExpec = 0.5 * (playerStats.score / playerTime) + 0.5 * (playerStats.score / (playerStats.score + npcStats.score)); 
-            avgComponents.adaptability += Math.max(0, (100 - Math.abs((scoreRatio * 100) - (scoreRatioExpec * 100))) / 100);
+            const scoreRatio = 0.5 * (npcScore / npcTime) + 0.5 * (npcScore / Math.max(1, npcScore + playerScore));
+            const scoreRatioExpec = 0.5 * (playerScore / playerTime) + 0.5 * (playerScore / Math.max(1, playerScore + npcScore)); 
+            const adaptabilityRaw = (100 - Math.abs((scoreRatio * 100) - (scoreRatioExpec * 100))) / 100;
+            avgComponents.adaptability += Math.max(0, Math.min(1, adaptabilityRaw));
             // FITNESS COMPONENT 4: [0, 1]
             const accuracy = (npcStats.targetsHit / Math.max(1, npcStats.ballsThrown));
             const avoidance = (npcStats.framesSafeDistance / Math.max(1, totalFrames)); // Take max to prevent division by zero
@@ -150,6 +156,10 @@ export class Population {
             const responsiveness = ((latencyScore || 0) + (jumpScore || 0) + (turnScore || 0)) / 3; // Average of the three subcomponents
             avgComponents.responsiveness += Math.min(1, responsiveness);
             });
+            const n = genomeMetrics.length;
+            for (let key in avgComponents) {
+                avgComponents[key] /= n; // Average across rounds: Currently each genome is only tested once per generation, but this allows for future expansion to multiple tests per genome if desired for more robust fitness evaluation
+            }
             //Recompute Weighted Total Fitness
             //Removing EMA since we are now evaluating fitness every round for each genome, so we want the most recent performance to be reflected in selection pressure without smoothing. This allows the population to adapt more quickly to changes and encourages exploration of new behaviors.
             let totalFitness = 0;
