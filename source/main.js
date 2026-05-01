@@ -42,7 +42,7 @@ const vector2 = new THREE.Vector3(); // Vector for collision detection
 const vector3 = new THREE.Vector3(); // Vector for collision detection
 // New Globals for Rounds and Metrics Collection //
 export let generationsCompleted = 0;
-const MAX_GENERATIONS = 5; // Limit total generations to prevent infinite testing
+const MAX_GENERATIONS = 10; // Limit total generations to prevent infinite testing
 let currentRound = 1;
 const MAX_ROUND_TIME = 75; // 75 seconds max per round to prevent infinite loops
 const MAX_ROUNDS = 1; // 1 round per generation: all 6 genomes tested via 3 NPCs in parallel
@@ -311,7 +311,7 @@ const roundCountdown = document.createElement('div');
 roundCountdown.id = 'round-countdown';
 function showRoundCountdownScreen() {
     roundCountdown.style.display = 'flex';
-    roundCountdown.textContent = `Initializing Round ${currentRound + 1}...`;
+    roundCountdown.textContent = `Initializing Round ${generationsCompleted + 2}...`;
 }
 function showRoundCountdown(seconds, onFinish) {
     if (!roundCountdown.parentElement) {
@@ -458,7 +458,10 @@ function shuffleGenomes(generaltionalPopulation) {
 //-----START ROUND LOGIC-----//
 function startRound(showCountdown = true) {
     roundTransitioning = false;
-    shuffleGenomes(generationalPopulation); // Shuffle genomes at the start of each round to ensure random testing order across generations
+    // Shuffle genomes only once at the start of each generation
+    if (genomeSlotInRound === 0) {
+        shuffleGenomes(generationalPopulation);
+    }
     // Assign genomes
     for (let i = 0; i < NUM_NPCS; i++) {
         const genomeIndex = i * GENOMES_PER_NPC + genomeSlotInRound;
@@ -481,7 +484,7 @@ function startRound(showCountdown = true) {
     });
 }
 function waitForNPCInitialization(callback) {
-    const MIN_WARMUP_MS = 5000;
+    const MIN_WARMUP_MS = 4000;
     let roundInitStartTime = performance.now();
     const check = () => {
         const allReady = npcs.every(npc => npc.hasActed) && (performance.now() - roundInitStartTime > MIN_WARMUP_MS);
@@ -922,18 +925,20 @@ function completeGeneration() {
     generationsCompleted += 1;
   if (generationsCompleted < MAX_GENERATIONS) {
         exportMetricsToCSV();
-        // Find the best genome and protect it (elitism)
+        // Find the two best genomes and protect them (elitism)
         const bestGenomeIndex = generationalPopulation.findBestGenomeIndex();
+        const secondBestGenomeIndex = generationalPopulation.findSecondBestGenomeIndex(bestGenomeIndex);
         console.log("Best genome index:", bestGenomeIndex, "with fitness:", generationalPopulation.genomes[bestGenomeIndex].fitness);
+        console.log("Second best genome index:", secondBestGenomeIndex, "with fitness:", generationalPopulation.genomes[secondBestGenomeIndex].fitness);
         console.log("=== BEFORE EVOLUTION Gen", generationsCompleted, "===");
         generationalPopulation.genomes.forEach((g, i) => {
             console.log(`Genome ${i}:`, {id: g.id, jumpFreq: g.behavior.jumpFrequency, ballPower: g.behavior.ballThrowPower, fitness: g.fitness});
         });
-        // Evolve population: keep best genome, replace bottom 5 with evolved children
-        const worstIndices = generationalPopulation.getIndicesOfWorstGenomes(bestGenomeIndex, 5);
+        // Evolve population: keep two best genomes, replace bottom 4 with evolved children
+        const worstIndices = generationalPopulation.getIndicesOfWorstGenomes(bestGenomeIndex, secondBestGenomeIndex, 4);
         console.log("Worst genome indices to replace:", worstIndices);
         worstIndices.forEach((worstIndex, iteration) => {
-            console.log(`Evolving child ${iteration+1} of 5... replacing genome at index ${worstIndex}`);
+            console.log(`Evolving child ${iteration+1} of 4... replacing genome at index ${worstIndex}`);
             // Tournament selection: pick 2 parents from the population
             const parent1Obj = generationalPopulation.tournamentSelection();
             let parent2Obj = generationalPopulation.tournamentSelection();

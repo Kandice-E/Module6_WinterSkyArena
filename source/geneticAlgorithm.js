@@ -202,6 +202,18 @@ export class Population {
         }
         return bestIndex;
     }
+    findSecondBestGenomeIndex(bestIndex) {
+        let secondBestIndex = 0;
+        let secondBestFitness = this.genomes[0].fitness;
+        for (let i = 1; i < this.genomes.length; i++) {
+            if (i === bestIndex) continue;
+            if (this.genomes[i].fitness > secondBestFitness) {
+                secondBestFitness = this.genomes[i].fitness;
+                secondBestIndex = i;
+            }
+        }
+        return secondBestIndex;
+    }
     findLowestFitnessIndexExcludingBest(bestIndex) {
         //Sort all genomes by fitness ascending (worst to best), excluding the best
         const sortedByFitness = Array.from({length: this.genomes.length}, (_, i) => i)
@@ -210,10 +222,10 @@ export class Population {
         // Return the single worst (first element)
         return sortedByFitness[0];
     }
-    getIndicesOfWorstGenomes(bestIndex, count) {
-        // Get indices of the N worst genomes, excluding the best
+    getIndicesOfWorstGenomes(bestIndex, secondBestIndex, count) {
+        // Get indices of the N worst genomes, excluding the best and second best
         const sortedByFitness = Array.from({length: this.genomes.length}, (_, i) => i)
-            .filter(i => i !== bestIndex)
+            .filter(i => i !== bestIndex && i !== secondBestIndex)
             .sort((a, b) => this.genomes[a].fitness - this.genomes[b].fitness);
         return sortedByFitness.slice(0, count);
     }
