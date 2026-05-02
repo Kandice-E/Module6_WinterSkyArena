@@ -42,7 +42,7 @@ const vector2 = new THREE.Vector3(); // Vector for collision detection
 const vector3 = new THREE.Vector3(); // Vector for collision detection
 // New Globals for Rounds and Metrics Collection //
 export let generationsCompleted = 0;
-const MAX_GENERATIONS = 10; // Limit total generations to prevent infinite testing
+const MAX_GENERATIONS = 3; // Limit total generations to prevent infinite testing
 let currentRound = 1;
 const MAX_ROUND_TIME = 75; // 75 seconds max per round to prevent infinite loops
 const MAX_ROUNDS = 1; // 1 round per generation: all 6 genomes tested via 3 NPCs in parallel
@@ -1117,6 +1117,8 @@ export function endGame() {
     backgroundMusic.currentTime = 0; // Reset the music to the beginning
     roundRunning = false;
     animationActive = false;
+    generationsCompleted = 0;
+    genomeSlotInRound = 0;
     // Stop/Reset the Timer
     clearInterval(timerInterval);
     // Hide the start screen and round countdown

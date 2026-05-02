@@ -44,8 +44,8 @@ export class Population {
         this.fitnessScores = [];
     }
     mutate(genome) {
-        const baseMutationRate = 0.4; // Base 25% chance to mutate each gene
-        const baseNoiseStdDev = 0.2; // Base noise at 10% of gene range
+        const baseMutationRate = 0.15; // Base 25% chance to mutate each gene
+        const baseNoiseStdDev = 0.05; // Base noise at 10% of gene range
         const mutationRate = baseMutationRate + (1 - generationsCompleted / 50) * 0.25; // Increase mutation rate in early generations to encourage exploration, then gradually reduce to allow for convergence. At generation 0, mutationRate is 0.5 (50%), and it decreases to 0.25 (25%) by generation 50, then remains constant.
         const noiseStdDev = baseNoiseStdDev + (1 - generationsCompleted / 50) * 0.15;  // starts at 0.25 decays to 0.1
 
@@ -93,9 +93,9 @@ export class Population {
     //-----Refactor fitness evaluation to be done on each genome in the population-----//
     evaluateFitness(roundMetrics) {
         const weights = {
-            competitive: 0.55, // Primary focus on outperforming player
+            competitive: 0.45, // Primary focus on outperforming player
             //closeness: 0.30, // Core Skill: Balancing score competitiveness without extreme risk
-            adaptability: 0.15, // Secondary Reduced emphasis to allow for more diverse strategies that may not always outperform but show potential
+            adaptability: 0.25, // Secondary Reduced emphasis to allow for more diverse strategies that may not always outperform but show potential
             behavioral: 0.20, // Secondary
             responsiveness: 0.10 // Low Impact: Encourages quicker reactions and efficient play but allows for some latency in exchange for other strengths
         };
@@ -131,8 +131,8 @@ export class Population {
             const diffScore = (diffNormalized + 1) / 2; // [0,1]
             const baseRaw = 0.5 * normalizedRatio + 0.3 * diffScore + 0.2 * winBonus;
             const base = Math.max(0, Math.min(1, baseRaw));
-            const competitive = Math.pow(base, 1.5); // amplify differences with exponentiation to increase selection pressure for more competitive genomes, while still allowing some credit for close performance to encourage incremental improvements. The 1.5 exponent provides a good balance between rewarding competitiveness and maintaining diversity in a small population.
-            const epsilon = 0.1; // Stronger floor to avoid dead genomes
+            const competitive = Math.pow(base, 2.0); // amplify differences with exponentiation to increase selection pressure for more competitive genomes, while still allowing some credit for close performance to encourage incremental improvements. The 1.5 exponent provides a good balance between rewarding competitiveness and maintaining diversity in a small population.
+            const epsilon = 0.05; // Stronger floor to avoid dead genomes
             avgComponents.competitive += epsilon + (1 - epsilon) * competitive; // Add small epsilon to prevent zero fitness and allow for some selection pressure even on less competitive genomes
             // FITNESS COMPONENT 2: [0, 1]
             //const scoreDiff = Math.abs(npcStats.score - playerStats.score);
@@ -142,19 +142,34 @@ export class Population {
             // FITNESS COMPONENT 3: [0, 1]
             const scoreRatio = 0.5 * (npcScore / npcTime) + 0.5 * (npcScore / Math.max(1, npcScore + playerScore));
             const scoreRatioExpec = 0.5 * (playerScore / playerTime) + 0.5 * (playerScore / Math.max(1, playerScore + npcScore)); 
-            const adaptabilityRaw = (100 - Math.abs((scoreRatio * 100) - (scoreRatioExpec * 100))) / 100;
-            avgComponents.adaptability += Math.max(0, Math.min(1, adaptabilityRaw));
+            const diff = Math.abs(scoreRatio - scoreRatioExpec);
+            const adaptability = Math.exp(-5 * diff); // Exponential penalty (sharper, harder to exploit)
+            avgComponents.adaptability += Math.min(1, adaptability);
+            //const adaptabilityRaw = (100 - Math.abs((scoreRatio * 100) - (scoreRatioExpec * 100))) / 100;
+            //avgComponents.adaptability += Math.max(0, Math.min(1, adaptabilityRaw));
             // FITNESS COMPONENT 4: [0, 1]
             const accuracy = (npcStats.targetsHit / Math.max(1, npcStats.ballsThrown));
             const avoidance = (npcStats.framesSafeDistance / Math.max(1, totalFrames)); // Take max to prevent division by zero
             const activity = npcStats.ballsThrown / Math.max(1, totalFrames); //Activity penelty (prevents camping)
-            avgComponents.behavioral += (0.4 * accuracy + 0.4 * avoidance + 0.2 * activity);
+            //avgComponents.behavioral += (0.4 * accuracy + 0.4 * avoidance + 0.2 * activity);
+            let behavioralScore = (0.4 * accuracy + 0.4 * avoidance + 0.2 * activity);
+            // Penalize degenerate strategies
+            const behavior = this.genomes[g].behavior;
+            // Too small targeting radius → overly exploitative
+            if (behavior.targetSelectionRadius < 15) {
+                behavioralScore *= 0.8;
+            }
+            // Too little avoidance → reckless / unrealistic
+            if (behavior.enemyAvoidanceDistance < 6) {
+                behavioralScore *= 0.85;
+            }
+            avgComponents.behavioral += behavioralScore;
             // FITNESS COMPONENT 5: [0, 1]
             const latencyScore = inverseRangeScore(npcStats.avgActionLatency || 0.1, 0.05, 0.3);
             const jumpScore = rangeScore(npcStats.measuredJumpFrequency || 4, 3, 7);
             const turnScore = rangeScore(npcStats.turnSpeed || 5, 5, 10);
             const responsiveness = ((latencyScore || 0) + (jumpScore || 0) + (turnScore || 0)) / 3; // Average of the three subcomponents
-            avgComponents.responsiveness += Math.min(1, responsiveness);
+            avgComponents.responsiveness += Math.pow(Math.min(1, responsiveness), 1.2);
             });
             const n = genomeMetrics.length;
             for (let key in avgComponents) {
@@ -231,7 +246,7 @@ export class Population {
     }
     tournamentSelection() {
         // Implement selection logic (e.g., tournament selection, roulette wheel)
-        const selectionSize = 2;
+        const selectionSize = 4;
         let bestIndividual = null;
         let bestIndex = -1;
         for (let i = 0; i < selectionSize; i++) {
