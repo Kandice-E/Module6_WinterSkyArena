@@ -23,6 +23,7 @@ export class Genome {
             responsiveness: 0
         };
         this.id = 0;
+        //this.prevScore = 0;
     }
 }
 // Gene ranges for mutation (defined outside of class for easy access in mutation function)
@@ -42,6 +43,7 @@ export class Population {
             this.genomes[i].id = generateUniqueId();
         }
         this.fitnessScores = [];
+        this.previousScores = new Map();//<<<<<<<<<<<<<<<<<<<<<
     }
     mutate(genome) {
         const baseMutationRate = 0.4; // Base 40% chance to mutate each gene
@@ -111,6 +113,7 @@ export class Population {
         };
         //Start by identifying and storing each genome's metrics
         for (let g = 0; g < this.genomes.length; g++) {
+            const genome = this.genomes[g];
             const genomeMetrics = roundMetrics.filter(m => m.genomeIndex === g);
             //Skip if no metrics collected this round
             if (genomeMetrics.length === 0) continue;
@@ -132,7 +135,6 @@ export class Population {
             // FITNESS COMPONENT 1: [0, 1]
             const npcScore = Math.max(0, npcStats.score);
             const playerScore = Math.max(0, playerStats.score);
-
             const winBonus = npcScore > playerScore ? 1 : 0; // Add a win bonus to strongly reward outperforming the player
             const competitiveRatio = npcScore / Math.max(1, playerScore);
             const normalizedRatio = Math.min(competitiveRatio, 1); // Normalize to [0, 1] with 1.5 as a reasonable upper bound for competitiveness
@@ -145,24 +147,34 @@ export class Population {
             const epsilon = 0.02; // Stronger floor to avoid dead genomes
             avgComponents.competitive += epsilon + (1 - epsilon) * competitive; // Add small epsilon to prevent zero fitness and allow for some selection pressure even on less competitive genomes
             // FITNESS COMPONENT 2: [0, 1]
-            //const scoreDiff = Math.abs(npcStats.score - playerStats.score);
-            //if (npcStats.score < playerStats.score) { // Only reward closeness when losing
-            //    avgComponents.closeness += Math.max(0, (100 - scoreDiff * 2) / 100);
-            //}
-            // FITNESS COMPONENT 3: [0, 1]
-            const scoreRatio = 0.5 * (npcScore / npcTime) + 0.5 * (npcScore / Math.max(1, npcScore + playerScore));
+            let adaptability = 0;
+            console.log("previousScores exists:", this.previousScores);
+            console.log("genome.id:", genome.id);
+            if (this.previousScores && this.previousScores.has(genome.id)) {
+                const prevScore = this.previousScores.get(genome.id);
+                const selfImprovement = (npcScore - prevScore) / Math.max(1, prevScore);
+                const relativePerformance = npcScore / Math.max(1, playerScore);
+                const normImprovement = Math.max(0, Math.min(1, selfImprovement));
+                const normRelative = Math.max(0, Math.min(1, relativePerformance));
+                adaptability = 0.6 * normImprovement + 0.4 * normRelative;
+            } else {
+                // Fallback for first generation or new genomes
+                adaptability = npcScore / Math.max(1, playerScore);
+            }
+            avgComponents.adaptability += adaptability;
+            /*const scoreRatio = 0.5 * (npcScore / npcTime) + 0.5 * (npcScore / Math.max(1, npcScore + playerScore));
             const scoreRatioExpec = 0.5 * (playerScore / playerTime) + 0.5 * (playerScore / Math.max(1, playerScore + npcScore)); 
             const diff = Math.abs(scoreRatio - scoreRatioExpec);
             //const adaptability = Math.exp(-5 * diff); // Exponential penalty (sharper, harder to exploit)
             //avgComponents.adaptability += Math.min(1, adaptability);
             const adaptabilityRaw = 1 - Math.abs(scoreRatio - scoreRatioExpec);
-            avgComponents.adaptability += Math.max(0, Math.min(1, adaptabilityRaw));
-            // FITNESS COMPONENT 4: [0, 1]
+            avgComponents.adaptability += Math.max(0, Math.min(1, adaptabilityRaw));*/
+            // FITNESS COMPONENT 3: [0, 1]
             const accuracy = (npcStats.targetsHit / Math.max(1, npcStats.ballsThrown));
             const avoidance = (npcStats.framesSafeDistance / Math.max(1, totalFrames)); // Take max to prevent division by zero
             const activity = npcStats.ballsThrown / Math.max(1, totalFrames); //Activity penelty (prevents camping)
             //avgComponents.behavioral += (0.4 * accuracy + 0.4 * avoidance + 0.2 * activity);
-            let behavioralScore = (0.4 * accuracy + 0.4 * avoidance + 0.2 * activity);
+            let behavioralScore = (0.4 * Math.pow(accuracy, 1.5) + 0.4 * Math.pow(avoidance, 1.5) + 0.2 * Math.pow(activity, 1.2));
             // Penalize degenerate strategies
             const behavior = this.genomes[g].behavior;
             // Too small targeting radius → overly exploitative
@@ -174,7 +186,7 @@ export class Population {
                 behavioralScore *= 0.85;
             }
             avgComponents.behavioral += Math.min(0.3, behavioralScore);
-            // FITNESS COMPONENT 5: [0, 1]
+            // FITNESS COMPONENT 4: [0, 1]
             const latencyScore = inverseRangeScore(npcStats.avgActionLatency || 0.1, 0.05, 0.3);
             const jumpScore = rangeScore(npcStats.measuredJumpFrequency || 4, 3, 7);
             const turnScore = rangeScore(npcStats.turnSpeed || 5, 5, 10);
@@ -189,7 +201,6 @@ export class Population {
             //Recompute Weighted Total Fitness
             //Removing EMA since we are now evaluating fitness every round for each genome, so we want the most recent performance to be reflected in selection pressure without smoothing. This allows the population to adapt more quickly to changes and encourages exploration of new behaviors.
             let totalFitness = 0;
-            const genome = this.genomes[g];
             for (let key in avgComponents) {
                 genome.metrics[key] = avgComponents[key]; // Store the average component values in the genome's metrics for reference
                 genome.evaluations++; // Increment evaluations for this genome
@@ -202,6 +213,13 @@ export class Population {
             genome.fitness = isNaN(totalFitness) ? 0 : totalFitness; // Final fitness is noramlized to [0, 1]
             this.fitnessScores[g] = genome.fitness;
             //this.fitnessScores[g] = genomeMetrics.length > 0 ? fitness * 5 : 0;
+            // Store previous state for next round
+            const lastMetric = genomeMetrics[genomeMetrics.length - 1];
+            const currentScore = lastMetric?.npc?.score ?? 0;
+            this.previousScores.set(genome.id, currentScore);
+            //const lastMetric = genomeMetrics[genomeMetrics.length -1];//<<<<<<<<<<<
+            //const currentScore = lastMetric?.npc?.score ?? 0;//<<<<<<<<<<<<<<<<<<
+            //this.previousScores.set(genome.id, currentScore);//<<<<<<<<<<<<<<<<<<<<
         }
     }
     findLowestFitnessIndex() {

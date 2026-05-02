@@ -42,7 +42,7 @@ const vector2 = new THREE.Vector3(); // Vector for collision detection
 const vector3 = new THREE.Vector3(); // Vector for collision detection
 // New Globals for Rounds and Metrics Collection //
 export let generationsCompleted = 0;
-const MAX_GENERATIONS = 10; // Limit total generations to prevent infinite testing
+const MAX_GENERATIONS = 5; // Limit total generations to prevent infinite testing
 let currentRound = 1;
 const MAX_ROUND_TIME = 75; // 75 seconds max per round to prevent infinite loops
 const MAX_ROUNDS = 1; // 1 round per generation: all 6 genomes tested via 3 NPCs in parallel
@@ -53,6 +53,7 @@ const genomeTestWindow = 30; // 30 seconds per genome slot
 let roundRunning = false;
 let roundTransitioning = false; // Flag to prevent continueRound from being called multiple times
 let animationActive = false; // Flag to track if the animation loop is active
+//let prevGenomeScore = 0;
 let roundMetrics = [];
 let playerStats = {
     startTime: 0,
@@ -660,7 +661,6 @@ function updateMetrics() {
             }
         });
     }
-    
     console.log(`[SLOT ${genomeSlotInRound} SAVED] Created 3 metrics entries for genomes ${genomeSlotInRound === 0 ? '0,2,4' : '1,3,5'}`);
 }
 function resetRound() {
@@ -1028,10 +1028,10 @@ export function continueRound() {
     if (genomeSlotInRound < GENOMES_PER_NPC - 1) {
         // Move to next slot (0 -> 1)
         genomeSlotInRound += 1;
-        resetMetricsForNextGenome();
         for (let i = 0; i < NUM_NPCS; i++) {
             npcs[i].score = 0;
         }
+        resetMetricsForNextGenome();
         resetNpcPosition();
         console.log(`Starting next slot: ${genomeSlotInRound} for all NPCs`); // Debugging line to confirm slot transition
         startRound(false); // false = don't show countdown for slot transition
