@@ -162,6 +162,8 @@ export class NPC {
         }
         // Throwing balls
         const timeSinceLastThrow = time - this.lastThrow;
+        console.log(`Time since last throw: ${timeSinceLastThrow.toFixed(2)}`);
+        console.log(`NPC ball throw frequency: ${this.behavior.ballThrowFrequency}`);
         const shouldThrow = timeSinceLastThrow > this.behavior.ballThrowFrequency && this.targetIndex >= 0;
         if (shouldThrow) {
             this.lastThrow = time;

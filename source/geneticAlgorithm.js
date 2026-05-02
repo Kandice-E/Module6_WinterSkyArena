@@ -8,7 +8,7 @@ export class Genome {
         this.behavior = {
         jumpFrequency: roundTo(Math.random() * 2 + 4, 2), // 2 to 6 seconds (centered at ~5)
         ballThrowPower: roundTo(Math.random() * 50 + 40, 2), // 50 to 90 velocity multiplier (centered at ~70)
-        ballThrowFrequency: roundTo(Math.random() * 4 + 3, 2), // 4 to 7 seconds (centered at ~5.5)
+        ballThrowFrequency: roundTo(Math.random() * 2 + 3, 2), // 2 to 5 seconds (centered at ~4)
         targetSelectionRadius: roundTo(Math.random() * 30 + 20, 2), // 30 to 50 units (centered at ~40)
         enemyAvoidanceDistance: roundTo(Math.random() * 4 + 8, 2), // 8 to 12 units (centered at ~10)
         movementSpeedMultiplier: roundTo(Math.random() * 0.6 + 1.2, 2) // 1.2 to 1.8 multiplier (centered at ~1.5)
@@ -29,7 +29,7 @@ export class Genome {
 const GENE_RANGES = {
     jumpFrequency: { min: 1.5, max: 7 }, // Keep original range for evolution flexibility
     ballThrowPower: { min: 50, max: 90 }, // Keep original range for evolution flexibility
-    ballThrowFrequency: { min: 3, max: 7 }, // Keep original range for evolution flexibility
+    ballThrowFrequency: { min: 2, max: 5 }, // Keep original range for evolution flexibility
     targetSelectionRadius: { min: 10, max: 60 }, // Expanded for more exploration potential
     enemyAvoidanceDistance: { min: 5, max: 15 }, // Expanded range
     movementSpeedMultiplier: { min: 0.8, max: 2 } // Expanded for more variation
@@ -44,8 +44,8 @@ export class Population {
         this.fitnessScores = [];
     }
     mutate(genome) {
-        const baseMutationRate = 0.15; // Base 25% chance to mutate each gene
-        const baseNoiseStdDev = 0.05; // Base noise at 10% of gene range
+        const baseMutationRate = 0.4; // Base 40% chance to mutate each gene
+        const baseNoiseStdDev = 0.25; // Base noise at 10% of gene range
         const mutationRate = baseMutationRate + (1 - generationsCompleted / 50) * 0.25; // Increase mutation rate in early generations to encourage exploration, then gradually reduce to allow for convergence. At generation 0, mutationRate is 0.5 (50%), and it decreases to 0.25 (25%) by generation 50, then remains constant.
         const noiseStdDev = baseNoiseStdDev + (1 - generationsCompleted / 50) * 0.15;  // starts at 0.25 decays to 0.1
 
@@ -54,13 +54,17 @@ export class Population {
                 console.log("Mutating genome...", {genomeId: genome.id, gene: key, oldValue: genome.behavior[key]});
                 const {min, max} = GENE_RANGES[key];
                 const range = max - min;
-                if (Math.random() < 0.05) {
-                    //Occasional BIG mutation to escape local optima
+                const r = Math.random();
+                if (r < 0.1) {
+                    //Hard mutation: completely random new value (10% of mutations)
                     console.log("Big mutation triggered for genome", genome.id, "gene", key);
                     genome.behavior[key] = min + Math.random() * range;
+                } else if (r < 0.4) {
+                    //Large mutation: 30%
+                    genome.behavior[key] += gaussianRandom(0, 0.5 * range);
                 } else {
-                    const noise = gaussianRandom(0, noiseStdDev * range);
-                    genome.behavior[key] += noise;
+                    //Small mutation: 60%
+                    genome.behavior[key] += gaussianRandom(0, noiseStdDev * range);
                 }
                 //Clamp to range
                 genome.behavior[key] = Math.max(min, Math.min(max, genome.behavior[key]));
@@ -72,19 +76,25 @@ export class Population {
         const alpha = 0.3;
 
         Object.keys(GENE_RANGES).forEach(key => {
-            const p1 = parentA.behavior[key];
-            const p2 = parentB.behavior[key];
-            const minVal = Math.min(p1, p2);
-            const maxVal = Math.max(p1, p2);
-            const diff = maxVal - minVal;
+            if (Math.random() < 0.2) {
+                // 20% chance: completely random gene (diversity injection)
+                const { min, max } = GENE_RANGES[key];
+                child.behavior[key] = min + Math.random() * (max - min);
+            } else {
+                // BLX-alpha crossover
+                const p1 = parentA.behavior[key];
+                const p2 = parentB.behavior[key];
 
-            const rangeMin = minVal - alpha * diff;
-            const rangeMax = maxVal + alpha * diff;
+                const minVal = Math.min(p1, p2);
+                const maxVal = Math.max(p1, p2);
+                const diff = maxVal - minVal;
 
-            child.behavior[key] = Math.random() * (rangeMax - rangeMin) + rangeMin;
-            //Clamp to gene range
-            const {min, max} = GENE_RANGES[key];
-            child.behavior[key] = Math.max(min, Math.min(max, child.behavior[key]));
+                //const alpha = 0.5; // increase from 0.3
+                const rangeMin = minVal - alpha * diff;
+                const rangeMax = maxVal + alpha * diff;
+
+                child.behavior[key] = Math.random() * (rangeMax - rangeMin) + rangeMin;
+            }
         });
         child.id = generateUniqueId();
         child.fitness = 0; // Initialize fitness for new children
@@ -131,8 +141,8 @@ export class Population {
             const diffScore = (diffNormalized + 1) / 2; // [0,1]
             const baseRaw = 0.5 * normalizedRatio + 0.3 * diffScore + 0.2 * winBonus;
             const base = Math.max(0, Math.min(1, baseRaw));
-            const competitive = Math.pow(base, 2.0); // amplify differences with exponentiation to increase selection pressure for more competitive genomes, while still allowing some credit for close performance to encourage incremental improvements. The 1.5 exponent provides a good balance between rewarding competitiveness and maintaining diversity in a small population.
-            const epsilon = 0.05; // Stronger floor to avoid dead genomes
+            const competitive = Math.pow(base, 1.5); // amplify differences with exponentiation to increase selection pressure for more competitive genomes, while still allowing some credit for close performance to encourage incremental improvements. The 1.5 exponent provides a good balance between rewarding competitiveness and maintaining diversity in a small population.
+            const epsilon = 0.02; // Stronger floor to avoid dead genomes
             avgComponents.competitive += epsilon + (1 - epsilon) * competitive; // Add small epsilon to prevent zero fitness and allow for some selection pressure even on less competitive genomes
             // FITNESS COMPONENT 2: [0, 1]
             //const scoreDiff = Math.abs(npcStats.score - playerStats.score);
@@ -143,10 +153,10 @@ export class Population {
             const scoreRatio = 0.5 * (npcScore / npcTime) + 0.5 * (npcScore / Math.max(1, npcScore + playerScore));
             const scoreRatioExpec = 0.5 * (playerScore / playerTime) + 0.5 * (playerScore / Math.max(1, playerScore + npcScore)); 
             const diff = Math.abs(scoreRatio - scoreRatioExpec);
-            const adaptability = Math.exp(-5 * diff); // Exponential penalty (sharper, harder to exploit)
-            avgComponents.adaptability += Math.min(1, adaptability);
-            //const adaptabilityRaw = (100 - Math.abs((scoreRatio * 100) - (scoreRatioExpec * 100))) / 100;
-            //avgComponents.adaptability += Math.max(0, Math.min(1, adaptabilityRaw));
+            //const adaptability = Math.exp(-5 * diff); // Exponential penalty (sharper, harder to exploit)
+            //avgComponents.adaptability += Math.min(1, adaptability);
+            const adaptabilityRaw = 1 - Math.abs(scoreRatio - scoreRatioExpec);
+            avgComponents.adaptability += Math.max(0, Math.min(1, adaptabilityRaw));
             // FITNESS COMPONENT 4: [0, 1]
             const accuracy = (npcStats.targetsHit / Math.max(1, npcStats.ballsThrown));
             const avoidance = (npcStats.framesSafeDistance / Math.max(1, totalFrames)); // Take max to prevent division by zero
@@ -163,13 +173,14 @@ export class Population {
             if (behavior.enemyAvoidanceDistance < 6) {
                 behavioralScore *= 0.85;
             }
-            avgComponents.behavioral += behavioralScore;
+            avgComponents.behavioral += Math.min(0.3, behavioralScore);
             // FITNESS COMPONENT 5: [0, 1]
             const latencyScore = inverseRangeScore(npcStats.avgActionLatency || 0.1, 0.05, 0.3);
             const jumpScore = rangeScore(npcStats.measuredJumpFrequency || 4, 3, 7);
             const turnScore = rangeScore(npcStats.turnSpeed || 5, 5, 10);
             const responsiveness = ((latencyScore || 0) + (jumpScore || 0) + (turnScore || 0)) / 3; // Average of the three subcomponents
-            avgComponents.responsiveness += Math.pow(Math.min(1, responsiveness), 1.2);
+            //avgComponents.responsiveness += Math.pow(Math.min(1, responsiveness), 1.2);
+            avgComponents.responsiveness += Math.min(1, responsiveness * 2.5);
             });
             const n = genomeMetrics.length;
             for (let key in avgComponents) {
@@ -292,8 +303,15 @@ function gaussianRandom(mean = 0, stdDev = 1) {
     const z0 = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
     return z0 * stdDev + mean;
 }
-function generateUniqueId() {
+export function generateUniqueId() {
     return Math.random().toString(36).substring(2, 10);
+}
+export function genomesTooSimilar(a, b) {
+    let diff = 0;
+    Object.keys(GENE_RANGES).forEach(key => {
+        diff += Math.abs(a.behavior[key] - b.behavior[key]);
+    });
+    return diff < 0.1; // tune threshold
 }
 function rangeScore(value, min, max) {
     if (value < min) return value / min;

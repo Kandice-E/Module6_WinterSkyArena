@@ -11,7 +11,7 @@ import { Capsule } from 'three/examples/jsm/math/Capsule.js';
 import { Octree } from 'three/examples/jsm/math/Octree.js';
 import { Player } from './player.js';
 import { NPC} from './npc.js';
-import { Population } from './geneticAlgorithm.js';
+import { Population, generateUniqueId, Genome, genomesTooSimilar } from './geneticAlgorithm.js';
 // Checking Changes
 //-----GLOBAL VARIABLES FOR IMPORT FUNCTIONS-----//
 const keyStates = {}; // Object to store key states
@@ -42,7 +42,7 @@ const vector2 = new THREE.Vector3(); // Vector for collision detection
 const vector3 = new THREE.Vector3(); // Vector for collision detection
 // New Globals for Rounds and Metrics Collection //
 export let generationsCompleted = 0;
-const MAX_GENERATIONS = 3; // Limit total generations to prevent infinite testing
+const MAX_GENERATIONS = 10; // Limit total generations to prevent infinite testing
 let currentRound = 1;
 const MAX_ROUND_TIME = 75; // 75 seconds max per round to prevent infinite loops
 const MAX_ROUNDS = 1; // 1 round per generation: all 6 genomes tested via 3 NPCs in parallel
@@ -484,7 +484,7 @@ function startRound(showCountdown = true) {
     });
 }
 function waitForNPCInitialization(callback) {
-    const MIN_WARMUP_MS = 4000;
+    const MIN_WARMUP_MS = 4500;
     let roundInitStartTime = performance.now();
     const check = () => {
         const allReady = npcs.every(npc => npc.hasActed) && (performance.now() - roundInitStartTime > MIN_WARMUP_MS);
@@ -616,7 +616,7 @@ function updateMetrics() {
                 jumpFrequency: playerStats.jumpCount / playerTimeSurvived,
                 measuredjumpFrequency: playerStats.jumpCount > 0 ? playerTimeSurvived / playerStats.jumpCount : 0,
                 turnSpeed: playerStats.turnAmount / playerTimeSurvived,
-                score: playerStats.score,
+                score: playerStats.score, //Was using player.score instead of score.counter for genome slot fair score comparison
                 ballsThrown: playerStats.ballsThrown,
                 targetsHit: playerStats.targetsHit,
                 throwFrequency: playerThrowFrequency,
@@ -735,6 +735,7 @@ function resetNpcPosition() {
     }
 }
 function resetMetricsForNextGenome() {
+    score.counter = 0;
     playerStats = {
         startTime: performance.now(),
         timeSurvived: 0,
@@ -939,22 +940,34 @@ function completeGeneration() {
         console.log("Worst genome indices to replace:", worstIndices);
         worstIndices.forEach((worstIndex, iteration) => {
             console.log(`Evolving child ${iteration+1} of 4... replacing genome at index ${worstIndex}`);
-            // Tournament selection: pick 2 parents from the population
-            const parent1Obj = generationalPopulation.tournamentSelection();
-            let parent2Obj = generationalPopulation.tournamentSelection();
-            // Extract the genome objects (tournamentSelection returns {genome, index, fitness})
-            const parent1 = parent1Obj.genome;
-            const parent2 = parent2Obj.genome;
-            //Prevent Identical Parents
-            let attempts = 0;
-            while (parent2Obj.index === parent1Obj.index && attempts < 5) {
-                parent2Obj = generationalPopulation.tournamentSelection();
-                attempts++;
+
+            let child;
+            // Inject random genome (20-30% chance)
+            if (Math.random() < 0.25) {
+                child = new Genome();
+                child.id = generateUniqueId();
+                console.log(`Injected random genome with id ${child.id} at index ${worstIndex}`);
+            } else {
+                // Tournament selection: pick 2 parents from the population
+                const parent1Obj = generationalPopulation.tournamentSelection();
+                let parent2Obj = generationalPopulation.tournamentSelection();
+                // Extract the genome objects (tournamentSelection returns {genome, index, fitness})
+                const parent1 = parent1Obj.genome;
+                const parent2 = parent2Obj.genome;
+                //Prevent Identical Parents
+                if (genomesTooSimilar(parent1, parent2)){
+                    parent2Obj = generationalPopulation.tournamentSelection();
+                }
+                //let attempts = 0;
+                /*while (parent2Obj.index === parent1Obj.index && attempts < 5) {
+                    parent2Obj = generationalPopulation.tournamentSelection();
+                    attempts++;
+                }*/
+                // Crossover
+                child = generationalPopulation.crossover(parent1, parent2);
+                // Mutation
+                generationalPopulation.mutate(child);
             }
-            // Crossover
-            const child = generationalPopulation.crossover(parent1, parent2);
-            // Mutation
-            generationalPopulation.mutate(child);
             // Replace worst genome with evolved child
             generationalPopulation.genomes[worstIndex] = child;
             console.log(`Replaced genome at index ${worstIndex} with new child (id: ${child.id})`);
@@ -982,7 +995,7 @@ function collectLiveMetrics(deltaTime) {
     playerStats.timeSurvived = (performance.now() - playerStats.startTime) / 1000;
     playerStats.jumpCount = player.jumpCount;
     playerStats.turnAmount += Math.abs(camera.rotation.y - lastCameraY);
-    playerStats.score = player.score;
+    playerStats.score = score.counter; //This should be score.counter
     playerStats.totalFrames += 1;
     lastCameraY = camera.rotation.y;
     // Collect metrics for all 3 NPCs

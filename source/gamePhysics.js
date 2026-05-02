@@ -192,7 +192,7 @@ function checkBallTargetCollisions(spheres, targets, score, npcs, worldOctree, p
                         npc.score += 1;
                         npc.targetsHit += 1;
                     } else {
-                        // NPC hit wrong target, player gets points
+                        // The sphere thrower index does not correpond to 
                         console.log("Player hit a target!");
                         score.counter += 1;
                         player.score += 1;
