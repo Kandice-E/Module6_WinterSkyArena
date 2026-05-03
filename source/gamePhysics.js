@@ -181,7 +181,7 @@ function checkBallTargetCollisions(spheres, targets, score, npcs, worldOctree, p
                     const npc = npcs[sphere.throwerNpcIndex];
                     if (target === targets[npc.targetIndex]) {
                         // NPC hit its target
-                        console.log(`NPC ${sphere.throwerNpcIndex} hit a target!`);
+                        //console.log(`NPC ${sphere.throwerNpcIndex} hit a target!`);
                         if (sphere.throwerNpcIndex === 0) {
                             score.npcCounter1 += 1;
                         } else if (sphere.throwerNpcIndex === 1) {
@@ -193,23 +193,24 @@ function checkBallTargetCollisions(spheres, targets, score, npcs, worldOctree, p
                         npc.targetsHit += 1;
                     } else {
                         // The sphere thrower index does not correpond to 
-                        console.log("Player hit a target!");
-                        score.counter += 1;
-                        player.score += 1;
-                        if (playerStats) {
-                            playerStats.targetsHit += 1;
-                        }
+                        //console.log("Player hit a target!");
+                        //score.counter += 1;
+                        //player.score += 1;
+                        //if (playerStats) {
+                            //playerStats.targetsHit += 1;
+                        //}
                         npc.targetIndex = -1; // Force NPC to pick new target
                     }
                 } else {
                     // Player threw this ball
-                    console.log("Player hit a target!");
+                    //console.log("Player hit a target!");
                     score.counter += 1;
                     player.score += 1;
                     if (playerStats) {
                         playerStats.targetsHit += 1;
                     }
                 }
+                console.log("collision player:", player);
                 updateScoreDisplay(score);
                 checkTargetWallCollisions(target, worldOctree);
                 break;
@@ -252,6 +253,7 @@ function teleportPlayerIfOob(camera, npcCollider, npc, player) {
 }
 function throwBall(spheres, sphereIdx, camera, mouseTime, player) {
     const sphere = spheres[ sphereIdx ];
+    sphere.throwerNpcIndex = -1;
     sphere.mesh.visible = true;
     camera.getWorldDirection( player.direction );
     sphere.collider.center.copy( player.collider.end ).addScaledVector( player.direction, player.collider.radius * 1.5 );
@@ -260,5 +262,6 @@ function throwBall(spheres, sphereIdx, camera, mouseTime, player) {
     sphere.velocity.copy( player.direction ).multiplyScalar( impulse );
     sphere.velocity.addScaledVector( player.velocity, 2 );
     sphereIdx = ( sphereIdx + 1 ) % spheres.length;
+    return sphereIdx;
 }
 export { updatePlayer, updateSpheres, teleportPlayerIfOob, throwBall, updateEnemiesAndTargets, checkBallTargetCollisions, checkForEnemyCollisions, playerCollisions};

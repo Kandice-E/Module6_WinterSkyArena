@@ -19,20 +19,20 @@ function eventListeners(mouseTime, keyStates, camera, spheres, sphereIdx, player
     currentPlayerStats = playerStats;
     document.addEventListener( 'keydown', ( event ) => {
         if ( event.key === ' ' ) {
-            console.log("Space bar pressed!");
+            //console.log("Space bar pressed!");
         }
         keyStates[ event.key ] = true;
     } );
     document.addEventListener( 'keyup', ( event ) => {
         if ( event.key === ' ') {
-            console.log("Space bar released!");
+            //console.log("Space bar released!");
         }
         keyStates[ event.key ] = false;
     } );
     document.addEventListener( 'mousedown', (event) => {
     // Prevent Pointer Lock If Clicking On UI Elements
     if (event.target.tagName === 'BUTTON' || event.target.id === 'start-screen') {
-        console.log("Pointer lock prevented on UI element.");
+        //console.log("Pointer lock prevented on UI element.");
         return;
     }
         document.body.requestPointerLock();
@@ -40,10 +40,10 @@ function eventListeners(mouseTime, keyStates, camera, spheres, sphereIdx, player
     } );
     document.addEventListener( 'mouseup', () => {
         if ( document.pointerLockElement !== null ) {
-            throwBall(spheres, sphereIdx, camera, mouseTime, player);
+            sphereIdx = throwBall(spheres, sphereIdx, camera, mouseTime, player);
             // Track player ball throw in playerStats (access current module-level reference)
             currentPlayerStats.ballsThrown += 1;
-            console.log(`[PLAYER THROW] balls thrown now: ${currentPlayerStats.ballsThrown}`);
+            //console.log(`[PLAYER THROW] balls thrown now: ${currentPlayerStats.ballsThrown}`);
             // Track player action latency (time from mouse down to mouse up = throw charge time)
             const throwLatency = (performance.now() - mouseTime) / 1000; // Convert ms to seconds
             currentPlayerStats.actionLatencies.push(throwLatency);

@@ -36,13 +36,14 @@ const NUM_TARGETS = 10;
 const TARGET_RADIUS = 0.5;
 const targets = [];
 let score = {counter: 0, npcCounter1: 0, npcCounter2: 0, npcCounter3: 0}; // Initialize score counters
+let winCounter = {playerWins: 0, npc1Wins: 0, npc2Wins: 0, npc3Wins: 0}; // Initialize win counters
 const worldOctree = new Octree(); // Create a new Octree for the world
 const vector1 = new THREE.Vector3(); // Vector for collision detection
 const vector2 = new THREE.Vector3(); // Vector for collision detection
 const vector3 = new THREE.Vector3(); // Vector for collision detection
 // New Globals for Rounds and Metrics Collection //
 export let generationsCompleted = 0;
-const MAX_GENERATIONS = 5; // Limit total generations to prevent infinite testing
+const MAX_GENERATIONS = 3; // Limit total generations to prevent infinite testing
 let currentRound = 1;
 const MAX_ROUND_TIME = 75; // 75 seconds max per round to prevent infinite loops
 const MAX_ROUNDS = 1; // 1 round per generation: all 6 genomes tested via 3 NPCs in parallel
@@ -119,8 +120,9 @@ for ( let i = 0; i < NUM_SPHERES; i ++ ) {
     spheres.push( {
         mesh: sphere,
         collider: new THREE.Sphere( new THREE.Vector3( 0, - 100, 0 ), SPHERE_RADIUS ),
-        velocity: new THREE.Vector3()
-    } );
+        velocity: new THREE.Vector3(),
+        throwerNpcIndex: -1 //Default to player ball index npcSpawnBall function updates accordingly if an NPC throws the ball
+    });
 }
 // Add NPC ball spawn function (called by NPC behavior when throwing a ball)
 // npcIndex indicates which of the 3 NPCs threw the ball
@@ -250,11 +252,12 @@ document.body.appendChild(roundDisplay);
 // Update Score Display Function
 export function updateScoreDisplay(score) {
     if (roundRunning) {
-        console.log("Score updated:", score.counter); // Debugging line
-        console.log("NPC Score updated:", score.npcCounter1); // Debugging line
+        //console.log("Score updated:", score.counter); // Debugging line
+        //console.log("NPC Score updated:", score.npcCounter1); // Debugging line
+        console.log("display player:", player);
         const scoreElement = document.getElementById('score');
         if (scoreElement) {
-            console.log("Score element found!"); // Debugging line
+            //console.log("Score element found!"); // Debugging line
             scoreElement.innerText = `Player Score: ${player.score}
             NPC 1 Score: ${score.npcCounter1}
             NPC 2 Score: ${score.npcCounter2}
@@ -295,7 +298,7 @@ function startTimer() {
             }
             else {
                 //console.log("Round complete. Completing generation..."); // Debugging line to confirm round end when timer runs out
-                console.log("Timer reached 0, all generations completed.");
+                //console.log("Timer reached 0, all generations completed.");
                 roundRunning = false; // Signal animate loop to stop
                 cancelAnimationFrame(animationFrameId); // Cancel pending animation frame
                 animationActive = false;
@@ -485,7 +488,7 @@ function startRound(showCountdown = true) {
     });
 }
 function waitForNPCInitialization(callback) {
-    const MIN_WARMUP_MS = 4500;
+    const MIN_WARMUP_MS = 5000;
     let roundInitStartTime = performance.now();
     const check = () => {
         const allReady = npcs.every(npc => npc.hasActed) && (performance.now() - roundInitStartTime > MIN_WARMUP_MS);
@@ -936,16 +939,19 @@ function completeGeneration() {
             console.log(`Genome ${i}:`, {id: g.id, jumpFreq: g.behavior.jumpFrequency, ballPower: g.behavior.ballThrowPower, fitness: g.fitness});
         });
         // Evolve population: keep two best genomes, replace bottom 4 with evolved children
-        const worstIndices = generationalPopulation.getIndicesOfWorstGenomes(bestGenomeIndex, secondBestGenomeIndex, 4);
+        /*const worstIndices = generationalPopulation.getIndicesOfWorstGenomes(bestGenomeIndex, secondBestGenomeIndex, 4);
         console.log("Worst genome indices to replace:", worstIndices);
         worstIndices.forEach((worstIndex, iteration) => {
             console.log(`Evolving child ${iteration+1} of 4... replacing genome at index ${worstIndex}`);
-
             let child;
             // Inject random genome (20-30% chance)
             if (Math.random() < 0.25) {
                 child = new Genome();
                 child.id = generateUniqueId();
+                //Object.keys(GENE_RANGES).forEach(key => {
+                    //const { min, max } = GENE_RANGES[key];
+                    //child.behavior[key] = min + Math.random() * (max - min);
+                //});
                 console.log(`Injected random genome with id ${child.id} at index ${worstIndex}`);
             } else {
                 // Tournament selection: pick 2 parents from the population
@@ -958,11 +964,6 @@ function completeGeneration() {
                 if (genomesTooSimilar(parent1, parent2)){
                     parent2Obj = generationalPopulation.tournamentSelection();
                 }
-                //let attempts = 0;
-                /*while (parent2Obj.index === parent1Obj.index && attempts < 5) {
-                    parent2Obj = generationalPopulation.tournamentSelection();
-                    attempts++;
-                }*/
                 // Crossover
                 child = generationalPopulation.crossover(parent1, parent2);
                 // Mutation
@@ -971,7 +972,8 @@ function completeGeneration() {
             // Replace worst genome with evolved child
             generationalPopulation.genomes[worstIndex] = child;
             console.log(`Replaced genome at index ${worstIndex} with new child (id: ${child.id})`);
-        });
+        });*/
+        generationalPopulation.evolvePopulation();
         console.log("=== AFTER EVOLUTION Gen", generationsCompleted + 1, "===");
         generationalPopulation.genomes.forEach((g, i) => {
             console.log(`Genome ${i}:`, {id: g.id, jumpFreq: g.behavior.jumpFrequency, ballPower: g.behavior.ballThrowPower, ballThrowFrequency: g.behavior.ballThrowFrequency, selectionRadius: g.behavior.targetSelectionRadius, enemyAvoidance: g.behavior.enemyAvoidanceDistance, speedMultiplier: g.behavior.movementSpeedMultiplier, fitness: g.fitness, competitive: g.metrics.competitive, adaptability: g.metrics.adaptability, behavioral: g.metrics.behavioral, responsiveness: g.metrics.responsiveness});
@@ -1033,7 +1035,7 @@ export function continueRound() {
         }
         resetMetricsForNextGenome();
         resetNpcPosition();
-        console.log(`Starting next slot: ${genomeSlotInRound} for all NPCs`); // Debugging line to confirm slot transition
+        //console.log(`Starting next slot: ${genomeSlotInRound} for all NPCs`); // Debugging line to confirm slot transition
         startRound(false); // false = don't show countdown for slot transition
     } else {
         // All slots tested, complete generation
@@ -1071,7 +1073,7 @@ function animate() {
     //console.log(`Frame time delta: ${rawDelta.toFixed(4)}s (throttled to ${TARGET_FPS}fps)`);
     // Handle first frame (may have unusual timing due to UI countdown)
     if (isFirstFrameOfRound) {
-        console.log("First frame detected, using default deltaTime");
+        //console.log("First frame detected, using default deltaTime");
         rawDelta = TARGET_FRAME_TIME / 1000; // Use target frame time for first frame
         isFirstFrameOfRound = false;
     }
@@ -1084,7 +1086,7 @@ function animate() {
     if (frameCount % 60 === 0) {
         const avgDeltaTime = deltaTimeSum / 60;
         const fps = 1 / avgDeltaTime;
-        console.log(`[ROUND ${currentRound} FRAME ${frameCount}] Avg FPS: ${fps.toFixed(0)}, Avg DeltaTime: ${avgDeltaTime.toFixed(4)}s`);
+        //console.log(`[ROUND ${currentRound} FRAME ${frameCount}] Avg FPS: ${fps.toFixed(0)}, Avg DeltaTime: ${avgDeltaTime.toFixed(4)}s`);
         deltaTimeSum = 0;
     }////////DEBUG LINES REMOVE AFTER TESTING
     // Collect Live Metrics
@@ -1148,7 +1150,7 @@ export function endGame() {
     // Display The Final Score
     const finalScore = document.createElement('div');
     finalScore.id = 'final-score';
-    finalScore.innerText = `Final Player Score: ${score.counter}
+    finalScore.innerText = `Final Player Score: ${player.score}
     NPC 1 Score: ${score.npcCounter1}
     NPC 2 Score: ${score.npcCounter2}
     NPC 3 Score: ${score.npcCounter3}`;
